@@ -27,9 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Tv
-import androidx.compose.material.icons.filled.Wifi
+import com.example.ui.AppIcons
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -142,7 +140,7 @@ fun DeviceDiscoverySheet(
                         modifier = Modifier.testTag("refresh_discovery_button")
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Refresh,
+                            imageVector = AppIcons.Refresh,
                             contentDescription = "Scan",
                             tint = AccentCyan,
                             modifier = if (isScanning) Modifier.rotate(angle) else Modifier
@@ -171,7 +169,7 @@ fun DeviceDiscoverySheet(
                     border = androidx.compose.foundation.BorderStroke(1.dp, AccentCyan.copy(alpha = 0.8f))
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Tv,
+                        imageVector = AppIcons.Tv,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
@@ -228,7 +226,7 @@ fun DeviceDiscoverySheet(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Wifi,
+                                imageVector = AppIcons.Wifi,
                                 contentDescription = null,
                                 tint = TextMuted,
                                 modifier = Modifier.size(40.dp)
@@ -292,7 +290,7 @@ fun DeviceListItem(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Tv,
+                        imageVector = AppIcons.Tv,
                         contentDescription = null,
                         tint = if (isConnected) AccentCyan else TextPrimary,
                         modifier = Modifier.size(22.dp)

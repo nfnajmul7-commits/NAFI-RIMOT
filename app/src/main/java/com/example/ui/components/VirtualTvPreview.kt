@@ -19,11 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Tv
-import androidx.compose.material.icons.filled.VolumeMute
-import androidx.compose.material.icons.filled.VolumeUp
-import androidx.compose.material.icons.filled.Wifi
+import com.example.ui.AppIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -235,7 +231,7 @@ fun VirtualTvPreview(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Icon(
-                                    imageVector = if (tvState.isMuted) Icons.Default.VolumeMute else Icons.Default.VolumeUp,
+                                    imageVector = if (tvState.isMuted) AppIcons.VolumeMute else AppIcons.VolumeUp,
                                     contentDescription = null,
                                     tint = if (tvState.isMuted) PowerRed else AccentCyan,
                                     modifier = Modifier.size(14.dp)

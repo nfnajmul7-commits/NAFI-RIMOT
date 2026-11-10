@@ -26,8 +26,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -359,7 +357,7 @@ fun ExactTopBar(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.PowerSettingsNew,
+                    imageVector = AppIcons.Power,
                     contentDescription = "Power",
                     tint = PowerRed,
                     modifier = Modifier.size(24.dp)
@@ -393,7 +391,7 @@ fun CompactCommandFeedbackHud(
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Icon(
-                    imageVector = if (result.success) Icons.Default.CheckCircle else Icons.Default.ErrorOutline,
+                    imageVector = if (result.success) Icons.Default.CheckCircle else AppIcons.ErrorOutline,
                     contentDescription = null,
                     tint = if (result.success) StatusGreen else PowerRed,
                     modifier = Modifier.size(13.dp)

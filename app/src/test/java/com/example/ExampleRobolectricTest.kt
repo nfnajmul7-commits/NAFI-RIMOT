@@ -30,6 +30,14 @@ class ExampleRobolectricTest {
         assertEquals("Smart TV Remote", appName)
     }
 
+    @Test
+    fun `launch MainActivity without crash`() {
+        val controller = org.robolectric.Robolectric.buildActivity(MainActivity::class.java)
+        controller.setup()
+        val activity = controller.get()
+        assertNotNull(activity)
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun `test repository sends command and updates virtual TV state`() = runTest {

@@ -19,13 +19,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CastConnected
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Tv
-import androidx.compose.material.icons.filled.Wifi
+import com.example.ui.AppIcons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -98,7 +94,7 @@ fun TvBoxGuideDialog(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Tv,
+                        imageVector = AppIcons.Tv,
                         contentDescription = null,
                         tint = AccentCyan,
                         modifier = Modifier.size(20.dp)
@@ -131,7 +127,7 @@ fun TvBoxGuideDialog(
                     stepNumber = "১",
                     title = "একই Wi-Fi তে কানেক্ট করুন",
                     description = "আপনার মোবাইল এবং টিভি বক্স (যেমন: TX3, Mi Box, X96, Walton ইত্যাদি) একই Wi-Fi রাউটারে কানেক্ট রাখুন।\n(রাউটার না থাকলে মোবাইলের Hotspot অন করে টিভি বক্সে কানেক্ট করুন)।",
-                    icon = Icons.Default.Wifi,
+                    icon = AppIcons.Wifi,
                     badge = if (userWifiIp != null) "আপনার ফোন: $userWifiIp" else null
                 )
 
@@ -247,7 +243,7 @@ fun TvBoxGuideDialog(
                                     )
                                 } else {
                                     Icon(
-                                        imageVector = Icons.Default.NetworkCheck,
+                                        imageVector = AppIcons.NetworkCheck,
                                         contentDescription = null,
                                         modifier = Modifier.size(16.dp)
                                     )

@@ -15,9 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.NetworkCheck
+import com.example.ui.AppIcons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -182,7 +180,7 @@ fun TvSettingsDialog(
                                 fontWeight = FontWeight.SemiBold
                             )
                             Icon(
-                                imageVector = Icons.Default.ArrowDropDown,
+                                imageVector = AppIcons.ArrowDropDown,
                                 contentDescription = null,
                                 tint = AccentCyan
                             )
@@ -238,7 +236,7 @@ fun TvSettingsDialog(
                             )
                         } else {
                             Icon(
-                                imageVector = Icons.Default.NetworkCheck,
+                                imageVector = AppIcons.NetworkCheck,
                                 contentDescription = null,
                                 modifier = Modifier.size(16.dp)
                             )

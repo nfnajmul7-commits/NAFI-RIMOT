@@ -20,12 +20,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Backspace
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Keyboard
-import androidx.compose.material.icons.filled.KeyboardReturn
-import androidx.compose.material.icons.filled.Send
-import androidx.compose.material.icons.filled.SpaceBar
+import com.example.ui.AppIcons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -99,7 +96,7 @@ fun TypeDialog(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Keyboard,
+                        imageVector = AppIcons.Keyboard,
                         contentDescription = null,
                         tint = AccentCyan,
                         modifier = Modifier.size(20.dp)
@@ -180,7 +177,7 @@ fun TypeDialog(
                         border = androidx.compose.foundation.BorderStroke(1.dp, ButtonBorder)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Backspace,
+                            imageVector = AppIcons.Backspace,
                             contentDescription = "Backspace",
                             modifier = Modifier.size(16.dp)
                         )
@@ -196,7 +193,7 @@ fun TypeDialog(
                         border = androidx.compose.foundation.BorderStroke(1.dp, ButtonBorder)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.SpaceBar,
+                            imageVector = AppIcons.SpaceBar,
                             contentDescription = "Space",
                             modifier = Modifier.size(16.dp)
                         )
@@ -214,7 +211,7 @@ fun TypeDialog(
                         )
                     ) {
                         Icon(
-                            imageVector = Icons.Default.KeyboardReturn,
+                            imageVector = AppIcons.KeyboardReturn,
                             contentDescription = "Enter",
                             modifier = Modifier.size(16.dp)
                         )
@@ -276,7 +273,7 @@ fun TypeDialog(
                 modifier = Modifier.testTag("send_typed_text_button")
             ) {
                 Icon(
-                    imageVector = Icons.Default.Send,
+                    imageVector = Icons.AutoMirrored.Filled.Send,
                     contentDescription = null,
                     modifier = Modifier.size(16.dp)
                 )
