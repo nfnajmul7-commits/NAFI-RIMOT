@@ -26,6 +26,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -114,14 +118,144 @@ fun TvRemoteScreen(
             ) {
                 // 1. Top Bar: [ ← Device Name (Living Room) ] [ ● Connected • Volume + ]   [ Power (Red) ]
                 ExactTopBar(
-                    deviceName = connectedDevice?.name ?: "Living Room",
-                    isConnected = connectionStatus == ConnectionStatus.CONNECTED && connectedDevice != null,
-                    statusText = if (lastResult != null) lastResult?.command?.label ?: "Volume +" else "Volume +",
+                    deviceName = connectedDevice?.name ?: "Android TV Box",
+                    isConnected = connectionStatus == ConnectionStatus.CONNECTED && connectedDevice?.isVirtual == false,
+                    statusText = if (connectedDevice?.isVirtual == true) "Virtual Demo" else (connectedDevice?.ipAddress ?: "192.168.0.100"),
                     onBackOrDeviceClick = { viewModel.showDiscoverySheet(true) },
                     onPowerClick = { viewModel.sendCommand(RemoteCommand.POWER) }
                 )
 
-                Spacer(modifier = Modifier.height(10.dp))
+                // Quick TV Connection Banner for 192.168.0.100
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFF141C2B),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        if (connectionStatus == ConnectionStatus.CONNECTED && connectedDevice?.isVirtual == false)
+                            StatusGreen.copy(alpha = 0.5f)
+                        else
+                            AccentCyan.copy(alpha = 0.4f)
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 2.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (connectionStatus == ConnectionStatus.CONNECTED && connectedDevice?.isVirtual == false)
+                                            StatusGreen
+                                        else
+                                            PowerRed
+                                    )
+                            )
+                            Column {
+                                Text(
+                                    text = connectedDevice?.let { "${it.name} (${it.ipAddress})" } ?: "Android TV (192.168.0.100)",
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = if (connectionStatus == ConnectionStatus.CONNECTED && connectedDevice?.isVirtual == false)
+                                        "ADB Port ${connectedDevice?.port ?: 5555} • সংযুক্ত"
+                                    else
+                                        "কানেক্ট করতে টেস্ট চাপুন",
+                                    color = if (connectionStatus == ConnectionStatus.CONNECTED && connectedDevice?.isVirtual == false)
+                                        StatusGreen
+                                    else
+                                        AccentCyan,
+                                    fontSize = 10.sp
+                                )
+                            }
+                        }
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Button(
+                                onClick = {
+                                    val ip = connectedDevice?.ipAddress ?: "192.168.0.100"
+                                    val port = connectedDevice?.port ?: 5555
+                                    viewModel.testPing(ip, port)
+                                },
+                                enabled = !uiState.isTestingPing,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF00384D),
+                                    contentColor = AccentCyan
+                                ),
+                                shape = RoundedCornerShape(6.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                modifier = Modifier.height(30.dp)
+                            ) {
+                                if (uiState.isTestingPing) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(12.dp),
+                                        color = AccentCyan,
+                                        strokeWidth = 2.dp
+                                    )
+                                } else {
+                                    Text("টেস্ট", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            Button(
+                                onClick = { viewModel.showTvBoxGuide(true) },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = AccentCyan,
+                                    contentColor = Color.Black
+                                ),
+                                shape = RoundedCornerShape(6.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                modifier = Modifier.height(30.dp)
+                            ) {
+                                Text("গাইড", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                // Ping Test Result Toast / Banner
+                uiState.pingTestResult?.let { result ->
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF1E283D),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (result.contains("সফল") || result.contains("Online")) StatusGreen else Color(0xFFFF9100)
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = result,
+                            color = if (result.contains("সফল") || result.contains("Online")) StatusGreen else Color(0xFFFFCC80),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(8.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // 2. Top 4 Utility Buttons: Menu, Settings, Hold to talk, Type
                 TopUtilityActionsRow(

@@ -47,7 +47,9 @@ class ExampleRobolectricTest {
 
         val repository = TvRemoteRepository(context, scope)
 
-        // Ensure initial device is connected
+        // Connect to virtual simulator device to test state updates
+        val virtualTv = repository.discoveryManager.discoveredDevices.value.first { it.isVirtual }
+        repository.connectToDevice(virtualTv)
         val connectedDevice = repository.connectedDevice.value
         assertNotNull(connectedDevice)
         assertTrue(connectedDevice?.isVirtual == true)

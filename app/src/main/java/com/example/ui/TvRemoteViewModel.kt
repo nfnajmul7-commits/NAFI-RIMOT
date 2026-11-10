@@ -94,12 +94,7 @@ class TvRemoteViewModel(application: Application) : AndroidViewModel(application
     fun testPing(ip: String, port: Int) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isTestingPing = true, pingTestResult = null)
-            val (success, latency) = repository.testDevicePing(ip, port)
-            val message = if (success) {
-                "Online! Response in ${latency}ms"
-            } else {
-                "Unreachable at $ip:$port (${latency}ms)"
-            }
+            val message = repository.diagnoseTvConnection(ip, port)
             _uiState.value = _uiState.value.copy(isTestingPing = false, pingTestResult = message)
         }
     }

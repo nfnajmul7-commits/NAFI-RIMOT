@@ -42,10 +42,9 @@ class TvNetworkClient {
             try {
                 when (device.protocol) {
                     TvProtocol.ROKU_ECP -> sendRokuCommand(device, command, startTime)
-                    TvProtocol.ANDROID_TV_TCP -> sendTcpSocketCommand(device, command, startTime)
+                    TvProtocol.ANDROID_TV_TCP -> sendAndroidTvAdbCommand(device, command, startTime)
                     TvProtocol.UNIVERSAL_REST -> sendRestCommand(device, command, startTime)
                     TvProtocol.VIRTUAL_SIMULATOR -> {
-                        // Virtual command simulated with instant realistic response
                         val latency = (12L..35L).random()
                         CommandResult(
                             command = command,
@@ -76,10 +75,8 @@ class TvNetworkClient {
         startTime: Long
     ): CommandResult {
         val endpoint = if (command.rokuKey.startsWith("launch/")) {
-            // App launch endpoint
             "http://${device.ipAddress}:${device.port}/${command.rokuKey}"
         } else {
-            // Standard keypress endpoint
             "http://${device.ipAddress}:${device.port}/keypress/${command.rokuKey}"
         }
 
@@ -110,42 +107,83 @@ class TvNetworkClient {
     }
 
     /**
-     * TCP Socket Command (Connects to raw TCP socket e.g. port 5555/6466/8080)
-     * Transmits Android Keycode and waits briefly for ACK
+     * Android TV / TV Box command via native ADB protocol over Port 5555
      */
-    private fun sendTcpSocketCommand(
+    private suspend fun sendAndroidTvAdbCommand(
         device: TvDevice,
         command: RemoteCommand,
         startTime: Long
     ): CommandResult {
-        Socket().use { socket ->
-            socket.soTimeout = 2000
-            socket.connect(InetSocketAddress(device.ipAddress, device.port), 2000)
-
-            val writer = PrintWriter(OutputStreamWriter(socket.getOutputStream(), Charsets.UTF_8), true)
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), Charsets.UTF_8))
-
-            // Protocol format: "KEYDOWN <CODE>\nKEYUP <CODE>\n" or "KEYCODE:<CODE>\n"
-            val payload = "KEYCODE:${command.androidKeyCode}:${command.name}\n"
-            writer.print(payload)
-            writer.flush()
-
-            // Read response if available
-            val reply = try {
-                if (socket.getInputStream().available() > 0) {
-                    reader.readLine() ?: "ACK"
-                } else {
-                    "ACK Sent"
-                }
-            } catch (e: Exception) {
-                "ACK Sent"
+        // App launcher command
+        if (command.name.startsWith("APP_")) {
+            val packageName = when (command) {
+                RemoteCommand.APP_YOUTUBE -> "com.google.android.youtube.tv"
+                RemoteCommand.APP_NETFLIX -> "com.netflix.ninja"
+                RemoteCommand.APP_PRIME -> "com.amazon.amazonvideo.livingroom"
+                RemoteCommand.APP_DISNEY -> "com.disney.disneyplus"
+                RemoteCommand.APP_SPOTIFY -> "com.spotify.tv.android"
+                RemoteCommand.APP_BROWSER -> "com.android.chrome"
+                else -> ""
             }
+            if (packageName.isNotEmpty()) {
+                val launchResult = AdbTvClient.launchAppPackage(device.ipAddress, device.port, packageName)
+                val latency = System.currentTimeMillis() - startTime
+                return CommandResult(
+                    command = command,
+                    success = launchResult.first,
+                    message = launchResult.second,
+                    latencyMs = latency
+                )
+            }
+        }
 
-            val latency = System.currentTimeMillis() - startTime
+        // Standard Keycode command via ADB
+        val adbResult = AdbTvClient.sendKeyevent(device.ipAddress, device.port, command.androidKeyCode)
+        val latency = System.currentTimeMillis() - startTime
+        if (adbResult.first) {
             return CommandResult(
                 command = command,
                 success = true,
-                message = "TCP ACK: $reply",
+                message = "ADB OK: ${command.label}",
+                latencyMs = latency
+            )
+        }
+
+        // Fallback to raw TCP socket stream if ADB daemon is replaced by raw socket listener
+        return try {
+            Socket().use { socket ->
+                socket.soTimeout = 2000
+                socket.connect(InetSocketAddress(device.ipAddress, device.port), 2000)
+
+                val writer = PrintWriter(OutputStreamWriter(socket.getOutputStream(), Charsets.UTF_8), true)
+                val reader = BufferedReader(InputStreamReader(socket.getInputStream(), Charsets.UTF_8))
+
+                val payload = "KEYCODE:${command.androidKeyCode}:${command.name}\n"
+                writer.print(payload)
+                writer.flush()
+
+                val reply = try {
+                    if (socket.getInputStream().available() > 0) {
+                        reader.readLine() ?: "ACK"
+                    } else {
+                        "ACK Sent"
+                    }
+                } catch (e: Exception) {
+                    "ACK Sent"
+                }
+
+                CommandResult(
+                    command = command,
+                    success = true,
+                    message = "TCP ACK: $reply",
+                    latencyMs = System.currentTimeMillis() - startTime
+                )
+            }
+        } catch (e: Exception) {
+            CommandResult(
+                command = command,
+                success = false,
+                message = adbResult.second.ifBlank { "Port ${device.port} unreachable on ${device.ipAddress}. TV-তে Network Debugging অন আছে কি দেখুন।" },
                 latencyMs = latency
             )
         }
@@ -207,22 +245,16 @@ class TvNetworkClient {
                     )
                 }
                 TvProtocol.ANDROID_TV_TCP -> {
-                    Socket().use { socket ->
-                        socket.soTimeout = 2000
-                        socket.connect(InetSocketAddress(device.ipAddress, device.port), 2000)
-                        val writer = PrintWriter(OutputStreamWriter(socket.getOutputStream(), Charsets.UTF_8), true)
-                        writer.print("TEXT:$text\n")
-                        writer.flush()
-                    }
+                    val adbResult = AdbTvClient.sendText(device.ipAddress, device.port, text)
                     CommandResult(
                         command = RemoteCommand.OK,
-                        success = true,
-                        message = "Sent text: $text",
+                        success = adbResult.first,
+                        message = if (adbResult.first) "Typed on TV: \"$text\"" else adbResult.second,
                         latencyMs = System.currentTimeMillis() - startTime
                     )
                 }
                 TvProtocol.UNIVERSAL_REST -> {
-                    val endpoint = "http://${device.ipAddress}:${device.port}/api/command"
+                    val endpoint = "http://${device.ipAddress}:${device.port}/api/type"
                     val payload = """{"command":"TYPE_TEXT","text":"$text"}"""
                     val req = Request.Builder().url(endpoint).post(payload.toRequestBody(JSON_MEDIA_TYPE)).build()
                     httpClient.newCall(req).execute().close()
@@ -253,11 +285,17 @@ class TvNetworkClient {
     }
 
     /**
-     * Tests connectivity to a target TV IP and port
+     * Tests connectivity to a target TV IP and port with detailed status
      */
     suspend fun pingDevice(ip: String, port: Int): Pair<Boolean, Long> = withContext(Dispatchers.IO) {
         val startTime = System.currentTimeMillis()
         try {
+            if (port == 5555) {
+                val adbTest = AdbTvClient.testAdbConnection(ip, port)
+                if (adbTest.first) {
+                    return@withContext Pair(true, System.currentTimeMillis() - startTime)
+                }
+            }
             Socket().use { socket ->
                 socket.connect(InetSocketAddress(ip, port), 2000)
                 val latency = System.currentTimeMillis() - startTime
@@ -266,5 +304,30 @@ class TvNetworkClient {
         } catch (e: Exception) {
             Pair(false, System.currentTimeMillis() - startTime)
         }
+    }
+
+    /**
+     * Scans common Smart TV & TV Box ports in parallel to discover which service is active
+     */
+    suspend fun scanTvPorts(ip: String): List<Pair<Int, String>> = withContext(Dispatchers.IO) {
+        val candidates = listOf(
+            5555 to "Android ADB / Network Debugging",
+            8080 to "Universal Web Remote Server",
+            8008 to "Chromecast / Google Cast",
+            6466 to "Google TV Remote v2",
+            8060 to "Roku TV ECP",
+            9090 to "Kodi Media Center",
+            4040 to "Android Remote Daemon"
+        )
+        val openPorts = mutableListOf<Pair<Int, String>>()
+        for ((port, desc) in candidates) {
+            try {
+                Socket().use { socket ->
+                    socket.connect(InetSocketAddress(ip, port), 600)
+                    openPorts.add(port to desc)
+                }
+            } catch (_: Exception) {}
+        }
+        openPorts
     }
 }

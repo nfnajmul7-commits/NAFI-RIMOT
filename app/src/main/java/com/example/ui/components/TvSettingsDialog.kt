@@ -57,18 +57,18 @@ import com.example.ui.theme.TextSecondary
 
 @Composable
 fun TvSettingsDialog(
-    initialIp: String = "",
-    initialPort: Int = 8060,
-    initialName: String = "",
-    initialProtocol: TvProtocol = TvProtocol.ROKU_ECP,
+    initialIp: String = "192.168.0.100",
+    initialPort: Int = 5555,
+    initialName: String = "Android TV Box",
+    initialProtocol: TvProtocol = TvProtocol.ANDROID_TV_TCP,
     isTestingPing: Boolean = false,
     pingResult: String? = null,
     onTestPing: (ip: String, port: Int) -> Unit,
     onSaveAndConnect: (name: String, ip: String, port: Int, protocol: TvProtocol) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var name by remember { mutableStateOf(initialName.ifBlank { "My Smart TV" }) }
-    var ip by remember { mutableStateOf(initialIp.ifBlank { "192.168.1." }) }
+    var name by remember { mutableStateOf(initialName.ifBlank { "Android TV Box" }) }
+    var ip by remember { mutableStateOf(initialIp.ifBlank { "192.168.0.100" }) }
     var portText by remember { mutableStateOf(initialPort.toString()) }
     var selectedProtocol by remember { mutableStateOf(initialProtocol) }
     var protocolDropdownExpanded by remember { mutableStateOf(false) }

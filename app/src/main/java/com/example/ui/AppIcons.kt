@@ -118,4 +118,24 @@ object AppIcons {
     val ErrorOutline: ImageVector by lazy {
         buildIcon("ErrorOutline", "M11 15h2v2h-2zm0-8h2v6h-2zm1-5C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z")
     }
+
+    val KeyboardArrowUp: ImageVector by lazy {
+        buildIcon("KeyboardArrowUp", "M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z")
+    }
+
+    val KeyboardArrowDown: ImageVector by lazy {
+        buildIcon("KeyboardArrowDown", "M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z")
+    }
+
+    val KeyboardArrowLeft: ImageVector by lazy {
+        buildIcon("KeyboardArrowLeft", "M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z")
+    }
+
+    val KeyboardArrowRight: ImageVector by lazy {
+        buildIcon("KeyboardArrowRight", "M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z")
+    }
+
+    val PowerSettingsNew: ImageVector by lazy {
+        buildIcon("PowerSettingsNew", "M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z")
+    }
 }

@@ -71,7 +71,7 @@ fun TvBoxGuideDialog(
     onConnect: (name: String, ip: String, port: Int, protocol: TvProtocol) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var ipInput by remember { mutableStateOf(subnetPrefix) }
+    var ipInput by remember { mutableStateOf("192.168.0.100") }
     var selectedBoxType by remember { mutableStateOf("Android TV Box") }
     var port by remember { mutableStateOf(5555) }
     var protocol by remember { mutableStateOf(TvProtocol.ANDROID_TV_TCP) }
@@ -108,7 +108,7 @@ fun TvBoxGuideDialog(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Easy TV Box Setup Guide",
+                        text = "Easy TV Box Setup Guide (IP: 192.168.0.100)",
                         color = TextMuted,
                         fontSize = 11.sp
                     )
@@ -125,17 +125,17 @@ fun TvBoxGuideDialog(
                 // Step 1: Same Wi-Fi
                 GuideStepCard(
                     stepNumber = "১",
-                    title = "একই Wi-Fi তে কানেক্ট করুন",
-                    description = "আপনার মোবাইল এবং টিভি বক্স (যেমন: TX3, Mi Box, X96, Walton ইত্যাদি) একই Wi-Fi রাউটারে কানেক্ট রাখুন।\n(রাউটার না থাকলে মোবাইলের Hotspot অন করে টিভি বক্সে কানেক্ট করুন)।",
+                    title = "একই Wi-Fi তে কানেক্ট রাখুন",
+                    description = "আপনার মোবাইল এবং টিভি বক্স (TX3, Tanix, X96, Walton, Mi Box ইত্যাদি) একই Wi-Fi নেটওয়ার্কে রাখুন।\nআপনার টিভির IP: 192.168.0.100",
                     icon = AppIcons.Wifi,
-                    badge = if (userWifiIp != null) "আপনার ফোন: $userWifiIp" else null
+                    badge = if (userWifiIp != null) "ফোন: $userWifiIp" else null
                 )
 
-                // Step 2: How to find IP on TV Box
+                // Step 2: Enable Network Debugging
                 GuideStepCard(
                     stepNumber = "২",
-                    title = "টিভি বক্সের IP অ্যাড্রেস দেখুন",
-                    description = "টিভি বক্সের রিমোট দিয়ে যান:\nSettings ➔ Network & Internet (বা Wi-Fi) ➔ Connected Wi-Fi ক্লিক করুন।\nসেখানে IP address দেখতে পাবেন (যেমন: ${subnetPrefix}105)।",
+                    title = "টিভি বক্সে Network Debugging চালু করুন",
+                    description = "Wi-Fi রিমোট কাজ করতে টিভিতে ADB চালু থাকতে হবে:\n১. টিভির আসল রিমোট দিয়ে যান: Settings ➔ About (ডিভাইস তথ্য)।\n২. নিচে গিয়ে Build (বিল্ড নম্বর) এ ৭ বার OK চাপুন (ডেভেলপার মোড চালু হবে)।\n৩. Developer Options এ গিয়ে Network Debugging / USB Debugging অন করুন।",
                     icon = Icons.Default.Settings
                 )
 

@@ -25,28 +25,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.FastForward
-import androidx.compose.material.icons.filled.FastRewind
-import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Keyboard
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.PowerSettingsNew
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.TouchApp
-import androidx.compose.material.icons.filled.VolumeMute
-import androidx.compose.material.icons.filled.VolumeUp
+import com.example.ui.AppIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -113,14 +99,14 @@ fun TopUtilityActionsRow(
         )
 
         UtilityActionButton(
-            icon = Icons.Default.Mic,
+            icon = AppIcons.Mic,
             label = "Hold to talk",
             onClick = onHoldToTalk,
             testTag = "utility_mic"
         )
 
         UtilityActionButton(
-            icon = Icons.Default.Keyboard,
+            icon = AppIcons.Keyboard,
             label = "Type",
             onClick = onOpenType,
             testTag = "utility_type"
@@ -422,7 +408,7 @@ fun ModeSelectorPillsRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.GridView,
+                            imageVector = AppIcons.GridView,
                             contentDescription = null,
                             tint = if (isDpad) Color.Black else TextGray,
                             modifier = Modifier.size(16.dp)
@@ -451,7 +437,7 @@ fun ModeSelectorPillsRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.TouchApp,
+                            imageVector = AppIcons.TouchApp,
                             contentDescription = null,
                             tint = if (isTouchpadActive) Color.Black else TextGray,
                             modifier = Modifier.size(16.dp)
@@ -481,7 +467,7 @@ fun ModeSelectorPillsRow(
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.GridView,
+                    imageVector = AppIcons.GridView,
                     contentDescription = null,
                     tint = CyanAccent,
                     modifier = Modifier.size(16.dp)
@@ -621,7 +607,7 @@ fun ExactVerticalRocker(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Remove,
+                        imageVector = AppIcons.Remove,
                         contentDescription = "$label -",
                         tint = Color.White,
                         modifier = Modifier.size(24.dp)
@@ -664,7 +650,7 @@ fun ExactSquircleDpad(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.KeyboardArrowUp,
+                    imageVector = AppIcons.KeyboardArrowUp,
                     contentDescription = "Up",
                     tint = Color.White,
                     modifier = Modifier.size(34.dp)
@@ -682,7 +668,7 @@ fun ExactSquircleDpad(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.KeyboardArrowDown,
+                    imageVector = AppIcons.KeyboardArrowDown,
                     contentDescription = "Down",
                     tint = Color.White,
                     modifier = Modifier.size(34.dp)
@@ -700,7 +686,7 @@ fun ExactSquircleDpad(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.KeyboardArrowLeft,
+                    imageVector = AppIcons.KeyboardArrowLeft,
                     contentDescription = "Left",
                     tint = Color.White,
                     modifier = Modifier.size(34.dp)
@@ -718,7 +704,7 @@ fun ExactSquircleDpad(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.KeyboardArrowRight,
+                    imageVector = AppIcons.KeyboardArrowRight,
                     contentDescription = "Right",
                     tint = Color.White,
                     modifier = Modifier.size(34.dp)
@@ -864,7 +850,7 @@ fun ExactBottomMediaBar(
     ) {
         // Mute button
         Icon(
-            imageVector = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.Default.VolumeMute,
+            imageVector = if (isMuted) AppIcons.VolumeOff else AppIcons.VolumeMute,
             contentDescription = "Mute",
             tint = if (isMuted) Color(0xFFFF5252) else Color.White,
             modifier = Modifier
@@ -875,7 +861,7 @@ fun ExactBottomMediaBar(
 
         // Rewind
         Icon(
-            imageVector = Icons.Default.FastRewind,
+            imageVector = AppIcons.FastRewind,
             contentDescription = "Rewind",
             tint = Color.White,
             modifier = Modifier
@@ -918,7 +904,7 @@ fun ExactBottomMediaBar(
 
         // Fast Forward
         Icon(
-            imageVector = Icons.Default.FastForward,
+            imageVector = AppIcons.FastForward,
             contentDescription = "Fast Forward",
             tint = Color.White,
             modifier = Modifier
@@ -995,7 +981,7 @@ fun TouchpadSurface(
                 verticalArrangement = Arrangement.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.KeyboardArrowUp,
+                    imageVector = AppIcons.KeyboardArrowUp,
                     contentDescription = null,
                     tint = TextGray,
                     modifier = Modifier.size(24.dp)
@@ -1005,7 +991,7 @@ fun TouchpadSurface(
                     horizontalArrangement = Arrangement.spacedBy(36.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.KeyboardArrowLeft,
+                        imageVector = AppIcons.KeyboardArrowLeft,
                         contentDescription = null,
                         tint = TextGray,
                         modifier = Modifier.size(24.dp)
@@ -1019,14 +1005,14 @@ fun TouchpadSurface(
                         letterSpacing = 1.sp
                     )
                     Icon(
-                        imageVector = Icons.Default.KeyboardArrowRight,
+                        imageVector = AppIcons.KeyboardArrowRight,
                         contentDescription = null,
                         tint = TextGray,
                         modifier = Modifier.size(24.dp)
                     )
                 }
                 Icon(
-                    imageVector = Icons.Default.KeyboardArrowDown,
+                    imageVector = AppIcons.KeyboardArrowDown,
                     contentDescription = null,
                     tint = TextGray,
                     modifier = Modifier.size(24.dp)

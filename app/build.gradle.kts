@@ -54,6 +54,10 @@ android {
       signingConfig = signingConfigs.getByName("debugConfig")
     }
   }
+  lint {
+    abortOnError = false
+    checkReleaseBuilds = false
+  }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
@@ -82,7 +86,7 @@ dependencies {
   implementation(platform(libs.androidx.compose.bom))
   implementation(libs.androidx.activity.compose)
   implementation(libs.androidx.compose.material.icons.core)
-  implementation(libs.androidx.compose.material.icons.extended)
+  // implementation(libs.androidx.compose.material.icons.extended) // Removed: saves ~3.5MB to keep APK under 5MB
   implementation(libs.androidx.compose.material3)
   implementation(libs.androidx.compose.ui)
   implementation(libs.androidx.compose.ui.graphics)

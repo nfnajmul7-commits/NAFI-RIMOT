@@ -157,6 +157,32 @@ class TvRemoteRepository(
         return networkClient.pingDevice(ip, port)
     }
 
+    suspend fun diagnoseTvConnection(ip: String, port: Int): String {
+        if (port == 5555) {
+            val adbTest = com.example.network.AdbTvClient.testAdbConnection(ip, port)
+            when (adbTest.second) {
+                com.example.network.AdbAuthStatus.CONNECTED -> return "সফল! TV Box কানেক্টেড (Port 5555 Active)"
+                com.example.network.AdbAuthStatus.WAITING_FOR_USER_AUTH -> return "টিভি স্ক্রিনে 'Allow USB Debugging' ডায়ালগে OK/Allow চাপুন!"
+                com.example.network.AdbAuthStatus.PORT_UNREACHABLE -> {
+                    val openPorts = scanTvPorts(ip)
+                    return if (openPorts.isNotEmpty()) {
+                        val first = openPorts.first()
+                        "Port 5555 বন্ধ, তবে Port ${first.first} (${first.second}) পাওয়া গেছে।"
+                    } else {
+                        "টিভি বক্সে 192.168.0.100 পাওয়া গেছে, কিন্তু Port 5555 বন্ধ। TV Settings > About > Build এ ৭ বার ক্লিক করে Developer Options থেকে Network / USB Debugging অন করুন।"
+                    }
+                }
+                else -> {}
+            }
+        }
+        val (ok, ms) = testDevicePing(ip, port)
+        return if (ok) "Online! Response in ${ms}ms (Port $port)" else "Port $port unreachable on $ip"
+    }
+
+    suspend fun scanTvPorts(ip: String): List<Pair<Int, String>> {
+        return networkClient.scanTvPorts(ip)
+    }
+
     fun addManualDevice(name: String, ip: String, port: Int, protocol: TvProtocol): TvDevice {
         val newDevice = TvDevice(
             id = "$ip:$port",
@@ -286,27 +312,51 @@ class TvRemoteRepository(
 
     private fun loadSavedDevices() {
         try {
-            val raw = prefs.getString("saved_tv_devices", null) ?: return
+            val raw = prefs.getString("saved_tv_devices", null)
+            if (raw == null) {
+                // Prepopulate the user's Android TV Box
+                val defaultTvBox = TvDevice(
+                    id = "192.168.0.100:5555",
+                    name = "Android TV Box",
+                    ipAddress = "192.168.0.100",
+                    port = 5555,
+                    protocol = TvProtocol.ANDROID_TV_TCP,
+                    isSaved = true
+                )
+                _savedDevices.value = listOf(defaultTvBox)
+                return
+            }
             val jsonArray = JSONArray(raw)
             val list = mutableListOf<TvDevice>()
             for (i in 0 until jsonArray.length()) {
                 val obj = jsonArray.getJSONObject(i)
                 val protocol = try {
-                    TvProtocol.valueOf(obj.optString("protocol", TvProtocol.ROKU_ECP.name))
+                    TvProtocol.valueOf(obj.optString("protocol", TvProtocol.ANDROID_TV_TCP.name))
                 } catch (_: Exception) {
-                    TvProtocol.ROKU_ECP
+                    TvProtocol.ANDROID_TV_TCP
                 }
                 list.add(
                     TvDevice(
                         id = obj.optString("id", "${obj.optString("ip")}:${obj.optInt("port")}"),
                         name = obj.optString("name", "Saved TV"),
                         ipAddress = obj.optString("ip"),
-                        port = obj.optInt("port", 8060),
+                        port = obj.optInt("port", 5555),
                         protocol = protocol,
                         serviceType = obj.optString("serviceType", ""),
                         isSaved = true
                     )
                 )
+            }
+            if (list.isEmpty()) {
+                val defaultTvBox = TvDevice(
+                    id = "192.168.0.100:5555",
+                    name = "Android TV Box",
+                    ipAddress = "192.168.0.100",
+                    port = 5555,
+                    protocol = TvProtocol.ANDROID_TV_TCP,
+                    isSaved = true
+                )
+                list.add(defaultTvBox)
             }
             _savedDevices.value = list
         } catch (_: Exception) {}
