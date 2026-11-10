@@ -1,0 +1,6 @@
+{
+  "name": "Smart TV Remote",
+  "description": "Universal Smart TV Remote Control over Wi-Fi with mDNS network discovery, D-pad navigation, volume/channel controls, and quick app launcher.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
