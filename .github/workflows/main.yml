@@ -21,26 +21,27 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+          cache: 'gradle'
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Prepare Keystore, Environment & Permissions
+      - name: Prepare Keystore and Environment
         run: |
-          # 1. Restore debug.keystore from base64 (or generate it)
+          # ১. Ensure .env exists
+          touch .env
+
+          # ২. Generate debug.keystore
           if [ -f "debug.keystore.base64" ]; then
             base64 -d debug.keystore.base64 > debug.keystore
           else
             keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
           fi
 
-          # 2. Ensure .env file exists for secrets plugin
-          touch .env
+          # ৩. Accept Android SDK licenses
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-          # 3. Make gradlew executable if present
+          # ৪. Make gradlew executable
           if [ -f "./gradlew" ]; then
             chmod +x ./gradlew
           fi
