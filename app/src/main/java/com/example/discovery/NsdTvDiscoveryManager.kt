@@ -292,7 +292,25 @@ class NsdTvDiscoveryManager(
         }
     }
 
-    private fun getLocalWifiIp(): String? {
+    fun getLocalWifiIp(): String? {
+        try {
+            val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
+            while (interfaces.hasMoreElements()) {
+                val iface = interfaces.nextElement()
+                if (iface.isLoopback || !iface.isUp) continue
+                val addresses = iface.inetAddresses
+                while (addresses.hasMoreElements()) {
+                    val addr = addresses.nextElement()
+                    if (!addr.isLoopbackAddress && addr is java.net.Inet4Address) {
+                        val host = addr.hostAddress
+                        if (host != null && !host.startsWith("127.")) {
+                            return host
+                        }
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+
         return try {
             val ipInt = wifiManager?.connectionInfo?.ipAddress ?: 0
             if (ipInt == 0) null
@@ -308,6 +326,15 @@ class NsdTvDiscoveryManager(
             }
         } catch (e: Exception) {
             null
+        }
+    }
+
+    fun getSubnetPrefix(): String {
+        val ip = getLocalWifiIp()
+        return if (ip != null && ip.contains(".")) {
+            ip.substringBeforeLast(".") + "."
+        } else {
+            "192.168.1."
         }
     }
 

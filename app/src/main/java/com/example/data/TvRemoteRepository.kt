@@ -125,6 +125,34 @@ class TvRemoteRepository(
         return result
     }
 
+    suspend fun sendTypedText(text: String): CommandResult {
+        triggerHapticClick()
+        val device = _connectedDevice.value
+        if (device == null) {
+            val failedResult = CommandResult(
+                command = RemoteCommand.OK,
+                success = false,
+                message = "No TV connected.",
+                latencyMs = 0
+            )
+            updateResult(failedResult)
+            return failedResult
+        }
+
+        if (device.isVirtual) {
+            val s = _virtualTvState.value
+            _virtualTvState.value = s.copy(
+                typedText = text,
+                lastCommandReceived = "TYPE: \"$text\""
+            )
+        }
+
+        val result = networkClient.sendTypedText(device, text)
+        _recentLatency.value = result.latencyMs
+        updateResult(result)
+        return result
+    }
+
     suspend fun testDevicePing(ip: String, port: Int): Pair<Boolean, Long> {
         return networkClient.pingDevice(ip, port)
     }

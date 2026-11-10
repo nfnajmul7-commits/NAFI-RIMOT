@@ -79,6 +79,7 @@ fun DeviceDiscoverySheet(
     onStartScan: () -> Unit,
     onStopScan: () -> Unit,
     onOpenManualDialog: () -> Unit,
+    onOpenTvBoxGuide: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
     ModalBottomSheet(
@@ -152,11 +153,32 @@ fun DeviceDiscoverySheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Action row: Manual IP & Quick virtual toggle
+            // Action row: TV Box Easy Connect & Manual IP
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                Button(
+                    onClick = onOpenTvBoxGuide,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("tv_box_guide_button"),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF00384D),
+                        contentColor = AccentCyan
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AccentCyan.copy(alpha = 0.8f))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Tv,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("টিভি বক্স সহজ কানেক্ট", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+
                 Button(
                     onClick = onOpenManualDialog,
                     modifier = Modifier
@@ -164,7 +186,7 @@ fun DeviceDiscoverySheet(
                         .testTag("manual_ip_button"),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = ButtonSurface,
-                        contentColor = AccentCyan
+                        contentColor = TextPrimary
                     ),
                     shape = RoundedCornerShape(12.dp),
                     border = androidx.compose.foundation.BorderStroke(1.dp, ButtonBorder)
@@ -175,7 +197,7 @@ fun DeviceDiscoverySheet(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Manual IP Entry", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Manual IP", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
 

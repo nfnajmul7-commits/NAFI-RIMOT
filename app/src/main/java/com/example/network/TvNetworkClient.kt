@@ -186,6 +186,73 @@ class TvNetworkClient {
     }
 
     /**
+     * Send typed text string to TV
+     */
+    suspend fun sendTypedText(device: TvDevice, text: String): CommandResult = withContext(Dispatchers.IO) {
+        val startTime = System.currentTimeMillis()
+        try {
+            when (device.protocol) {
+                TvProtocol.ROKU_ECP -> {
+                    for (ch in text) {
+                        val encoded = if (ch == ' ') "%20" else java.net.URLEncoder.encode(ch.toString(), "UTF-8")
+                        val endpoint = "http://${device.ipAddress}:${device.port}/keypress/Lit_$encoded"
+                        val req = Request.Builder().url(endpoint).post("".toRequestBody(null)).build()
+                        httpClient.newCall(req).execute().close()
+                    }
+                    CommandResult(
+                        command = RemoteCommand.OK,
+                        success = true,
+                        message = "Typed \"$text\"",
+                        latencyMs = System.currentTimeMillis() - startTime
+                    )
+                }
+                TvProtocol.ANDROID_TV_TCP -> {
+                    Socket().use { socket ->
+                        socket.soTimeout = 2000
+                        socket.connect(InetSocketAddress(device.ipAddress, device.port), 2000)
+                        val writer = PrintWriter(OutputStreamWriter(socket.getOutputStream(), Charsets.UTF_8), true)
+                        writer.print("TEXT:$text\n")
+                        writer.flush()
+                    }
+                    CommandResult(
+                        command = RemoteCommand.OK,
+                        success = true,
+                        message = "Sent text: $text",
+                        latencyMs = System.currentTimeMillis() - startTime
+                    )
+                }
+                TvProtocol.UNIVERSAL_REST -> {
+                    val endpoint = "http://${device.ipAddress}:${device.port}/api/command"
+                    val payload = """{"command":"TYPE_TEXT","text":"$text"}"""
+                    val req = Request.Builder().url(endpoint).post(payload.toRequestBody(JSON_MEDIA_TYPE)).build()
+                    httpClient.newCall(req).execute().close()
+                    CommandResult(
+                        command = RemoteCommand.OK,
+                        success = true,
+                        message = "Sent text: $text",
+                        latencyMs = System.currentTimeMillis() - startTime
+                    )
+                }
+                TvProtocol.VIRTUAL_SIMULATOR -> {
+                    CommandResult(
+                        command = RemoteCommand.OK,
+                        success = true,
+                        message = "Typed on TV: \"$text\"",
+                        latencyMs = (10L..25L).random()
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            CommandResult(
+                command = RemoteCommand.OK,
+                success = false,
+                message = e.localizedMessage ?: "Failed to type text on TV",
+                latencyMs = System.currentTimeMillis() - startTime
+            )
+        }
+    }
+
+    /**
      * Tests connectivity to a target TV IP and port
      */
     suspend fun pingDevice(ip: String, port: Int): Pair<Boolean, Long> = withContext(Dispatchers.IO) {

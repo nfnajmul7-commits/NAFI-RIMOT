@@ -29,7 +29,9 @@ data class RemoteUiState(
     val activeTab: RemoteTab = RemoteTab.NAVIGATION,
     val showDiscoverySheet: Boolean = false,
     val showSettingsDialog: Boolean = false,
-    val showVirtualTvScreen: Boolean = true,
+    val showTvBoxGuide: Boolean = false,
+    val showTypeDialog: Boolean = false,
+    val showVirtualTvScreen: Boolean = false,
     val isTestingPing: Boolean = false,
     val pingTestResult: String? = null
 )
@@ -55,6 +57,16 @@ class TvRemoteViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             repository.executeCommand(command)
         }
+    }
+
+    fun sendTypedText(text: String) {
+        viewModelScope.launch {
+            repository.sendTypedText(text)
+        }
+    }
+
+    fun showTypeDialog(show: Boolean) {
+        _uiState.value = _uiState.value.copy(showTypeDialog = show)
     }
 
     fun startScanning() {
@@ -109,6 +121,18 @@ class TvRemoteViewModel(application: Application) : AndroidViewModel(application
 
     fun toggleVirtualTvScreen() {
         _uiState.value = _uiState.value.copy(showVirtualTvScreen = !_uiState.value.showVirtualTvScreen)
+    }
+
+    fun showTvBoxGuide(show: Boolean) {
+        _uiState.value = _uiState.value.copy(showTvBoxGuide = show)
+    }
+
+    fun getSubnetPrefix(): String {
+        return repository.discoveryManager.getSubnetPrefix()
+    }
+
+    fun getUserWifiIp(): String? {
+        return repository.discoveryManager.getLocalWifiIp()
     }
 
     override fun onCleared() {

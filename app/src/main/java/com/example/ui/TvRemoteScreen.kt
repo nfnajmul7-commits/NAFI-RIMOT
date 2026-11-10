@@ -3,10 +3,7 @@ package com.example.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,56 +14,36 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Cast
-import androidx.compose.material.icons.filled.CastConnected
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Input
-import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.PowerSettingsNew
-import androidx.compose.material.icons.filled.Radio
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.TouchApp
-import androidx.compose.material.icons.filled.Tv
-import androidx.compose.material.icons.filled.TvOff
-import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
@@ -77,33 +54,25 @@ import androidx.compose.ui.unit.sp
 import com.example.data.ConnectionStatus
 import com.example.model.CommandResult
 import com.example.model.RemoteCommand
-import com.example.ui.components.DPadCluster
+import com.example.ui.components.AppLauncherCarousel
 import com.example.ui.components.DeviceDiscoverySheet
-import com.example.ui.components.MediaPlaybackRow
+import com.example.ui.components.ExactBottomMediaBar
+import com.example.ui.components.ExactCentralControlCluster
+import com.example.ui.components.ExactHomeBackRow
+import com.example.ui.components.ModeSelectorPillsRow
 import com.example.ui.components.NumpadCluster
-import com.example.ui.components.QuickAppsGrid
-import com.example.ui.components.SystemNavRow
-import com.example.ui.components.TactileIconButton
+import com.example.ui.components.TopUtilityActionsRow
 import com.example.ui.components.TouchpadSurface
+import com.example.ui.components.TvBoxGuideDialog
 import com.example.ui.components.TvSettingsDialog
-import com.example.ui.components.VirtualTvPreview
-import com.example.ui.components.VolumeChannelRockers
+import com.example.ui.components.TypeDialog
 import com.example.ui.theme.AccentCyan
-import com.example.ui.theme.AccentCyanGlow
-import com.example.ui.theme.ButtonBorder
-import com.example.ui.theme.ButtonSurface
 import com.example.ui.theme.DarkBg
 import com.example.ui.theme.PowerRed
-import com.example.ui.theme.PowerRedGlow
-import com.example.ui.theme.RemoteBody
-import com.example.ui.theme.RemoteCard
 import com.example.ui.theme.StatusGreen
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -118,9 +87,10 @@ fun TvRemoteScreen(
     val savedDevices by viewModel.savedDevices.collectAsState()
     val isScanning by viewModel.isScanning.collectAsState()
     val recentLatency by viewModel.recentLatency.collectAsState()
-    val commandHistory by viewModel.commandHistory.collectAsState()
     val lastResult by viewModel.lastResult.collectAsState()
     val virtualTvState by viewModel.virtualTvState.collectAsState()
+
+    var activeCenterMode by remember { mutableStateOf("DPAD") } // "DPAD", "TOUCHPAD", "NUMBERS"
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scrollState = rememberScrollState()
@@ -134,108 +104,109 @@ fun TvRemoteScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF0A0E18),
-                            Color(0xFF101726),
-                            Color(0xFF0A0E18)
-                        )
-                    )
-                ),
+                .background(Color(0xFF0C101A)),
             contentAlignment = Alignment.TopCenter
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .widthIn(max = 520.dp)
+                    .widthIn(max = 500.dp)
                     .verticalScroll(scrollState),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Header Bar (Status Pill, Cast discovery, TV monitor toggle, Power button)
-                RemoteHeaderBar(
-                    connectedDevice = connectedDevice,
-                    connectionStatus = connectionStatus,
-                    latencyMs = recentLatency,
-                    showVirtualTv = uiState.showVirtualTvScreen,
-                    onOpenDiscovery = { viewModel.showDiscoverySheet(true) },
-                    onOpenSettings = { viewModel.showSettingsDialog(true) },
-                    onToggleVirtualTv = { viewModel.toggleVirtualTvScreen() },
+                // 1. Top Bar: [ ← Device Name (Living Room) ] [ ● Connected • Volume + ]   [ Power (Red) ]
+                ExactTopBar(
+                    deviceName = connectedDevice?.name ?: "Living Room",
+                    isConnected = connectionStatus == ConnectionStatus.CONNECTED && connectedDevice != null,
+                    statusText = if (lastResult != null) lastResult?.command?.label ?: "Volume +" else "Volume +",
+                    onBackOrDeviceClick = { viewModel.showDiscoverySheet(true) },
                     onPowerClick = { viewModel.sendCommand(RemoteCommand.POWER) }
                 )
 
-                // Virtual TV Monitor Display (Live reactive visual preview)
-                AnimatedVisibility(
-                    visible = uiState.showVirtualTvScreen,
-                    enter = fadeIn() + slideInVertically(),
-                    exit = fadeOut() + slideOutVertically()
-                ) {
-                    VirtualTvPreview(
-                        tvState = virtualTvState,
-                        tvName = connectedDevice?.name ?: "Demo Smart TV",
-                        ipAddress = connectedDevice?.ipAddress ?: "127.0.0.1",
-                        latencyMs = recentLatency
-                    )
-                }
+                Spacer(modifier = Modifier.height(10.dp))
 
-                // Command Feedback HUD Banner
-                lastResult?.let { result ->
-                    CommandFeedbackHud(result = result)
-                }
+                // 2. Top 4 Utility Buttons: Menu, Settings, Hold to talk, Type
+                TopUtilityActionsRow(
+                    onCommand = { viewModel.sendCommand(it) },
+                    onOpenSettings = { viewModel.showSettingsDialog(true) },
+                    onOpenType = { viewModel.showTypeDialog(true) },
+                    onHoldToTalk = {
+                        viewModel.showTvBoxGuide(true)
+                    }
+                )
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // Navigation Mode Tabs
-                RemoteModeTabRow(
-                    selectedTab = uiState.activeTab,
-                    onTabSelected = { viewModel.setActiveTab(it) }
+                // 3. App Launcher Carousel: YouTube, Netflix, Prime Video, Disney+, Spotify, Edit
+                AppLauncherCarousel(
+                    onCommand = { viewModel.sendCommand(it) }
                 )
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Active Mode Content
-                when (uiState.activeTab) {
-                    RemoteTab.NAVIGATION -> {
-                        NavigationTabContent(
-                            onCommand = { viewModel.sendCommand(it) },
-                            isMuted = virtualTvState.isMuted
+                // 4. Mode Selector Pill Bar: [ D-Pad | Touchpad ]       [ Numbers ]
+                ModeSelectorPillsRow(
+                    isTouchpadActive = activeCenterMode == "TOUCHPAD",
+                    isNumbersActive = activeCenterMode == "NUMBERS",
+                    onSelectDpad = { activeCenterMode = "DPAD" },
+                    onSelectTouchpad = { activeCenterMode = "TOUCHPAD" },
+                    onSelectNumbers = { activeCenterMode = "NUMBERS" }
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // 5. Main Center Controller Section (D-Pad + Rockers OR Touchpad OR Numbers)
+                when (activeCenterMode) {
+                    "DPAD" -> {
+                        ExactCentralControlCluster(
+                            onCommand = { viewModel.sendCommand(it) }
                         )
                     }
-                    RemoteTab.NUMPAD -> {
-                        NumpadCluster(
-                            onCommand = { viewModel.sendCommand(it) },
-                            modifier = Modifier.padding(vertical = 12.dp)
-                        )
-                    }
-                    RemoteTab.APPS -> {
-                        Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                            Text(
-                                text = "STREAMING & INPUT SHORTCUTS",
-                                color = TextMuted,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp,
-                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
-                            )
-                            QuickAppsGrid(
-                                onCommand = { viewModel.sendCommand(it) }
-                            )
-                        }
-                    }
-                    RemoteTab.TOUCHPAD -> {
+                    "TOUCHPAD" -> {
                         TouchpadSurface(
-                            onCommand = { viewModel.sendCommand(it) },
-                            modifier = Modifier.padding(vertical = 12.dp)
+                            onCommand = { viewModel.sendCommand(it) }
                         )
                     }
-                    RemoteTab.LOGS -> {
-                        CommandLogsView(commandHistory = commandHistory)
+                    "NUMBERS" -> {
+                        NumpadCluster(
+                            onCommand = { viewModel.sendCommand(it) }
+                        )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(28.dp))
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // 6. Home & Back Wide Pill Buttons: [ ⌂ Home ]   [ ← Back ]
+                ExactHomeBackRow(
+                    onCommand = { viewModel.sendCommand(it) }
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // 7. Bottom Media Controls Bar: [ Mute ] [ << ] [ ▶ (Cyan) ] [ >> ] [ ⓘ ]
+                ExactBottomMediaBar(
+                    onCommand = { viewModel.sendCommand(it) },
+                    isMuted = virtualTvState.isMuted
+                )
+
+                // Optional Command Feedback Banner
+                lastResult?.let { result ->
+                    Spacer(modifier = Modifier.height(6.dp))
+                    CompactCommandFeedbackHud(result = result)
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
             }
         }
+    }
+
+    // 8. Typing / Keyboard Dialog (টাইপিং এর ব্যবস্থা)
+    if (uiState.showTypeDialog) {
+        TypeDialog(
+            onSendText = { text -> viewModel.sendTypedText(text) },
+            onSendCommand = { cmd -> viewModel.sendCommand(cmd) },
+            onDismiss = { viewModel.showTypeDialog(false) }
+        )
     }
 
     // Device Discovery Bottom Sheet
@@ -253,14 +224,34 @@ fun TvRemoteScreen(
                 viewModel.showDiscoverySheet(false)
                 viewModel.showSettingsDialog(true)
             },
+            onOpenTvBoxGuide = {
+                viewModel.showDiscoverySheet(false)
+                viewModel.showTvBoxGuide(true)
+            },
             onDismiss = { viewModel.showDiscoverySheet(false) }
+        )
+    }
+
+    // TV Box Setup Guide Dialog
+    if (uiState.showTvBoxGuide) {
+        TvBoxGuideDialog(
+            subnetPrefix = viewModel.getSubnetPrefix(),
+            userWifiIp = viewModel.getUserWifiIp(),
+            isTestingPing = uiState.isTestingPing,
+            pingResult = uiState.pingTestResult,
+            onTestPing = { ip, port -> viewModel.testPing(ip, port) },
+            onConnect = { name, ip, port, protocol ->
+                viewModel.addManualDevice(name, ip, port, protocol)
+                viewModel.showTvBoxGuide(false)
+            },
+            onDismiss = { viewModel.showTvBoxGuide(false) }
         )
     }
 
     // Manual TV Settings Dialog
     if (uiState.showSettingsDialog) {
         TvSettingsDialog(
-            initialIp = connectedDevice?.ipAddress ?: "192.168.1.",
+            initialIp = connectedDevice?.ipAddress ?: viewModel.getSubnetPrefix(),
             initialPort = connectedDevice?.port ?: 8060,
             initialName = connectedDevice?.name ?: "Living Room TV",
             initialProtocol = connectedDevice?.protocol ?: com.example.model.TvProtocol.ROKU_ECP,
@@ -276,142 +267,124 @@ fun TvRemoteScreen(
 }
 
 /**
- * Top remote control bar with TV connection status, power, cast, settings
+ * Top bar matching the reference image:
+ * [ ← Device Name ]
+ * [ ● Connected • Volume + ]
+ * [ Power (Red) ]
  */
 @Composable
-fun RemoteHeaderBar(
-    connectedDevice: com.example.model.TvDevice?,
-    connectionStatus: ConnectionStatus,
-    latencyMs: Long?,
-    showVirtualTv: Boolean,
-    onOpenDiscovery: () -> Unit,
-    onOpenSettings: () -> Unit,
-    onToggleVirtualTv: () -> Unit,
+fun ExactTopBar(
+    deviceName: String,
+    isConnected: Boolean,
+    statusText: String,
+    onBackOrDeviceClick: () -> Unit,
     onPowerClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // TV Connection Pill (Click to open discovery)
-        Surface(
+        // Left: Back Arrow + Device Title + Subtitle
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier
-                .clip(RoundedCornerShape(20.dp))
-                .clickable(onClick = onOpenDiscovery)
-                .testTag("connection_status_pill"),
-            shape = RoundedCornerShape(20.dp),
-            color = ButtonSurface,
-            border = androidx.compose.foundation.BorderStroke(1.dp, ButtonBorder)
+                .clickable(onClick = onBackOrDeviceClick)
+                .testTag("top_bar_device_selector")
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                val isOnline = connectionStatus == ConnectionStatus.CONNECTED && connectedDevice != null
-                Box(
-                    modifier = Modifier
-                        .size(9.dp)
-                        .clip(CircleShape)
-                        .background(if (isOnline) StatusGreen else PowerRed)
-                )
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Select TV",
+                tint = Color.White,
+                modifier = Modifier.size(22.dp)
+            )
 
+            Column {
                 Text(
-                    text = connectedDevice?.name ?: "Tap to Connect TV",
-                    color = TextPrimary,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    text = deviceName,
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.widthIn(max = 140.dp)
+                    overflow = TextOverflow.Ellipsis
                 )
-
-                Icon(
-                    imageVector = if (isOnline) Icons.Default.CastConnected else Icons.Default.Cast,
-                    contentDescription = "Cast Discovery",
-                    tint = if (isOnline) AccentCyan else TextMuted,
-                    modifier = Modifier.size(16.dp)
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(if (isConnected) StatusGreen else PowerRed)
+                    )
+                    Text(
+                        text = if (isConnected) "Connected" else "Disconnected",
+                        color = Color(0xFF9EAFC7),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "•",
+                        color = Color(0xFF6B7E99),
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        text = statusText,
+                        color = AccentCyan,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
 
-        // Action Buttons: Monitor toggle, Settings, Power
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        // Right: Circular Power Button (Red)
+        Surface(
+            modifier = Modifier
+                .size(46.dp)
+                .clip(CircleShape)
+                .clickable(onClick = onPowerClick)
+                .testTag("top_power_button"),
+            shape = CircleShape,
+            color = Color(0xFF1F121C),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF4A1A28))
         ) {
-            // TV Screen Toggle
-            IconButton(
-                onClick = onToggleVirtualTv,
-                modifier = Modifier
-                    .size(42.dp)
-                    .testTag("toggle_virtual_tv_button")
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = if (showVirtualTv) Icons.Default.Tv else Icons.Default.TvOff,
-                    contentDescription = "Toggle TV Monitor",
-                    tint = if (showVirtualTv) AccentCyan else TextMuted,
-                    modifier = Modifier.size(22.dp)
+                    imageVector = Icons.Default.PowerSettingsNew,
+                    contentDescription = "Power",
+                    tint = PowerRed,
+                    modifier = Modifier.size(24.dp)
                 )
             }
-
-            // Settings / Manual IP
-            IconButton(
-                onClick = onOpenSettings,
-                modifier = Modifier
-                    .size(42.dp)
-                    .testTag("open_settings_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = "Settings",
-                    tint = TextSecondary,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            // Main Power Button
-            TactileIconButton(
-                icon = Icons.Default.PowerSettingsNew,
-                contentDescription = "Power",
-                onClick = onPowerClick,
-                size = 46.dp,
-                iconSize = 24.dp,
-                contentColor = PowerRed,
-                glowColor = PowerRedGlow,
-                testTag = "remote_power_button"
-            )
         }
     }
 }
 
-/**
- * Animated Command Feedback Toast
- */
 @Composable
-fun CommandFeedbackHud(
+fun CompactCommandFeedbackHud(
     result: CommandResult,
     modifier: Modifier = Modifier
 ) {
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(10.dp),
-        color = if (result.success) Color(0xFF132238) else Color(0xFF33151D),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            if (result.success) AccentCyan.copy(alpha = 0.5f) else PowerRed.copy(alpha = 0.5f)
-        )
+            .padding(horizontal = 20.dp, vertical = 2.dp),
+        shape = RoundedCornerShape(8.dp),
+        color = if (result.success) Color(0xFF0F1E30) else Color(0xFF2E0F17)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 6.dp),
+                .padding(horizontal = 12.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -423,17 +396,11 @@ fun CommandFeedbackHud(
                     imageVector = if (result.success) Icons.Default.CheckCircle else Icons.Default.ErrorOutline,
                     contentDescription = null,
                     tint = if (result.success) StatusGreen else PowerRed,
-                    modifier = Modifier.size(14.dp)
+                    modifier = Modifier.size(13.dp)
                 )
                 Text(
-                    text = result.command.label,
-                    color = TextPrimary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "• ${result.message}",
-                    color = TextSecondary,
+                    text = "${result.command.label}: ${result.message}",
+                    color = Color.White,
                     fontSize = 11.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -443,193 +410,9 @@ fun CommandFeedbackHud(
             Text(
                 text = "${result.latencyMs}ms",
                 color = AccentCyan,
-                fontSize = 11.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold
+                fontSize = 10.sp,
+                fontFamily = FontFamily.Monospace
             )
-        }
-    }
-}
-
-/**
- * Controller Mode Tab Selector
- */
-@Composable
-fun RemoteModeTabRow(
-    selectedTab: RemoteTab,
-    onTabSelected: (RemoteTab) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    ScrollableTabRow(
-        selectedTabIndex = selectedTab.ordinal,
-        containerColor = Color.Transparent,
-        contentColor = AccentCyan,
-        edgePadding = 16.dp,
-        divider = {},
-        indicator = { tabPositions ->
-            TabRowDefaults.SecondaryIndicator(
-                modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab.ordinal]),
-                color = AccentCyan,
-                height = 2.dp
-            )
-        },
-        modifier = modifier.testTag("remote_mode_tabs")
-    ) {
-        RemoteTab.values().forEach { tab ->
-            Tab(
-                selected = selectedTab == tab,
-                onClick = { onTabSelected(tab) },
-                text = {
-                    Text(
-                        text = tab.label,
-                        color = if (selectedTab == tab) AccentCyan else TextSecondary,
-                        fontSize = 13.sp,
-                        fontWeight = if (selectedTab == tab) FontWeight.Bold else FontWeight.Medium
-                    )
-                }
-            )
-        }
-    }
-}
-
-/**
- * Standard Navigation Layout: D-Pad, System Nav, Volume/Channel Rockers, Media Controls
- */
-@Composable
-fun NavigationTabContent(
-    onCommand: (RemoteCommand) -> Unit,
-    isMuted: Boolean,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // D-Pad Cluster
-        DPadCluster(
-            onCommand = onCommand,
-            modifier = Modifier.padding(top = 8.dp)
-        )
-
-        // System Nav Row (Back, Home, Menu)
-        SystemNavRow(onCommand = onCommand)
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        // Volume and Channel Rockers
-        VolumeChannelRockers(
-            onCommand = onCommand,
-            isMuted = isMuted
-        )
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        // Media Playback Row
-        MediaPlaybackRow(onCommand = onCommand)
-    }
-}
-
-/**
- * Network Command Execution History View
- */
-@Composable
-fun CommandLogsView(
-    commandHistory: List<CommandResult>,
-    modifier: Modifier = Modifier
-) {
-    val timeFormat = SimpleDateFormat("HH:mm:ss.SSS", Locale.getDefault())
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(340.dp)
-            .padding(horizontal = 16.dp)
-    ) {
-        Text(
-            text = "RECENT PACKET TRANSMISSIONS",
-            color = TextMuted,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 1.sp,
-            modifier = Modifier.padding(vertical = 6.dp)
-        )
-
-        if (commandHistory.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(RemoteCard),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "No commands sent yet.\nPress any remote button to transmit commands.",
-                    color = TextMuted,
-                    fontSize = 13.sp,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(RemoteCard)
-                    .border(1.dp, ButtonBorder, RoundedCornerShape(12.dp))
-                    .padding(8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                items(commandHistory) { item ->
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(6.dp),
-                        color = Color(0xFF141C2A)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Text(
-                                        text = item.command.name,
-                                        color = if (item.success) AccentCyan else PowerRed,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        fontFamily = FontFamily.Monospace
-                                    )
-                                    Text(
-                                        text = "• ${item.message}",
-                                        color = TextSecondary,
-                                        fontSize = 11.sp,
-                                        fontFamily = FontFamily.Monospace
-                                    )
-                                }
-                                Text(
-                                    text = timeFormat.format(Date(item.timestamp)),
-                                    color = TextMuted,
-                                    fontSize = 10.sp
-                                )
-                            }
-
-                            Text(
-                                text = "${item.latencyMs}ms",
-                                color = if (item.success) StatusGreen else PowerRed,
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-            }
         }
     }
 }

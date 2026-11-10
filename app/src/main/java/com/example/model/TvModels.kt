@@ -101,6 +101,11 @@ enum class RemoteCommand(
     COLOR_YELLOW("Yellow", 185, "Yellow", "YELLOW"),
     COLOR_BLUE("Blue", 186, "Blue", "BLUE"),
 
+    // Text & Keyboard Commands
+    ENTER("Enter", 66, "Enter", "ENTER"),
+    BACKSPACE("Backspace", 67, "Backspace", "BACKSPACE"),
+    SPACE("Space", 62, "Lit_%20", "SPACE"),
+
     // Quick App Shortcuts
     APP_NETFLIX("Netflix", 0, "launch/12", "NETFLIX"),
     APP_YOUTUBE("YouTube", 0, "launch/837", "YOUTUBE"),
@@ -132,5 +137,6 @@ data class VirtualTvState(
     val channelName: String = "Channel 05 - Cinema HD",
     val activeApp: String = "Live TV",
     val selectedMenuIndex: Int = 0,
-    val lastCommandReceived: String = "READY"
+    val lastCommandReceived: String = "READY",
+    val typedText: String = ""
 )

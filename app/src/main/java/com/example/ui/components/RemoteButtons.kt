@@ -19,29 +19,34 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.FastRewind
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Input
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PowerSettingsNew
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.VolumeDown
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.VolumeMute
-import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -65,634 +70,973 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.RemoteCommand
-import com.example.ui.theme.AccentBlue
-import com.example.ui.theme.AccentCyan
-import com.example.ui.theme.AccentCyanGlow
-import com.example.ui.theme.ButtonBorder
-import com.example.ui.theme.ButtonSurface
-import com.example.ui.theme.ButtonSurfacePressed
-import com.example.ui.theme.DisneyBlue
-import com.example.ui.theme.NetflixRed
-import com.example.ui.theme.PowerRed
-import com.example.ui.theme.PowerRedGlow
-import com.example.ui.theme.PrimeBlue
-import com.example.ui.theme.RemoteCard
-import com.example.ui.theme.SpotifyGreen
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
-import com.example.ui.theme.YouTubeRed
+
+// Color tokens matching the reference design
+val CyanAccent = Color(0xFF00D2FF)
+val DpadDarkBg = Color(0xFF141D2E)
+val RockerBg = Color(0xFF131A29)
+val UtilityCardBg = Color(0xFF172033)
+val CardBorder = Color(0xFF243048)
+val TextGray = Color(0xFF8F9FB8)
 
 /**
- * Tactile rounded circular button with press scaling and feedback
+ * Top 4 utility buttons: Menu, Settings, Hold to talk, Type
  */
 @Composable
-fun TactileIconButton(
-    icon: ImageVector,
-    contentDescription: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    size: Dp = 54.dp,
-    iconSize: Dp = 24.dp,
-    containerColor: Color = ButtonSurface,
-    contentColor: Color = TextPrimary,
-    glowColor: Color? = null,
-    testTag: String = ""
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.92f else 1.0f,
-        animationSpec = tween(durationMillis = 100),
-        label = "button_scale"
-    )
-
-    Box(
-        modifier = modifier
-            .size(size)
-            .scale(scale)
-            .shadow(
-                elevation = if (glowColor != null) 8.dp else 4.dp,
-                shape = CircleShape,
-                ambientColor = glowColor ?: Color.Black,
-                spotColor = glowColor ?: Color.Black
-            )
-            .clip(CircleShape)
-            .background(
-                brush = Brush.radialGradient(
-                    colors = if (isPressed) listOf(
-                        ButtonSurfacePressed,
-                        containerColor
-                    ) else listOf(containerColor, ButtonSurface)
-                )
-            )
-            .border(
-                width = 1.dp,
-                color = if (isPressed) AccentCyan else (glowColor ?: ButtonBorder),
-                shape = CircleShape
-            )
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick
-            )
-            .testTag(testTag.ifBlank { contentDescription }),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = if (isPressed) AccentCyan else contentColor,
-            modifier = Modifier.size(iconSize)
-        )
-    }
-}
-
-/**
- * High-precision D-Pad navigation wheel with Center OK button
- */
-@Composable
-fun DPadCluster(
+fun TopUtilityActionsRow(
     onCommand: (RemoteCommand) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val dpadSize = 220.dp
-    val okButtonSize = 84.dp
-
-    Box(
-        modifier = modifier
-            .size(dpadSize)
-            .shadow(12.dp, CircleShape, spotColor = AccentCyanGlow)
-            .clip(CircleShape)
-            .background(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        ButtonSurface,
-                        RemoteCard
-                    )
-                )
-            )
-            .border(1.5.dp, ButtonBorder, CircleShape)
-            .testTag("dpad_cluster"),
-        contentAlignment = Alignment.Center
-    ) {
-        // UP Button
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 10.dp)
-        ) {
-            DPadDirectionButton(
-                icon = Icons.Default.KeyboardArrowUp,
-                contentDescription = "DPad Up",
-                onClick = { onCommand(RemoteCommand.DPAD_UP) },
-                testTag = "dpad_up"
-            )
-        }
-
-        // DOWN Button
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 10.dp)
-        ) {
-            DPadDirectionButton(
-                icon = Icons.Default.KeyboardArrowDown,
-                contentDescription = "DPad Down",
-                onClick = { onCommand(RemoteCommand.DPAD_DOWN) },
-                testTag = "dpad_down"
-            )
-        }
-
-        // LEFT Button
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .padding(start = 10.dp)
-        ) {
-            DPadDirectionButton(
-                icon = Icons.Default.KeyboardArrowLeft,
-                contentDescription = "DPad Left",
-                onClick = { onCommand(RemoteCommand.DPAD_LEFT) },
-                testTag = "dpad_left"
-            )
-        }
-
-        // RIGHT Button
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(end = 10.dp)
-        ) {
-            DPadDirectionButton(
-                icon = Icons.Default.KeyboardArrowRight,
-                contentDescription = "DPad Right",
-                onClick = { onCommand(RemoteCommand.DPAD_RIGHT) },
-                testTag = "dpad_right"
-            )
-        }
-
-        // OK Center Button
-        val okInteraction = remember { MutableInteractionSource() }
-        val okPressed by okInteraction.collectIsPressedAsState()
-        val okScale by animateFloatAsState(
-            targetValue = if (okPressed) 0.90f else 1.0f,
-            label = "ok_scale"
-        )
-
-        Box(
-            modifier = Modifier
-                .size(okButtonSize)
-                .scale(okScale)
-                .shadow(8.dp, CircleShape, spotColor = AccentCyan)
-                .clip(CircleShape)
-                .background(
-                    brush = Brush.radialGradient(
-                        colors = if (okPressed) listOf(
-                            AccentCyan,
-                            AccentBlue
-                        ) else listOf(
-                            Color(0xFF2C3852),
-                            Color(0xFF1B2333)
-                        )
-                    )
-                )
-                .border(
-                    width = 2.dp,
-                    brush = Brush.sweepGradient(
-                        listOf(
-                            AccentCyan,
-                            AccentBlue,
-                            AccentCyan
-                        )
-                    ),
-                    shape = CircleShape
-                )
-                .clickable(
-                    interactionSource = okInteraction,
-                    indication = null,
-                    onClick = { onCommand(RemoteCommand.OK) }
-                )
-                .testTag("dpad_ok_button"),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "OK",
-                color = if (okPressed) Color.Black else AccentCyan,
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
-                letterSpacing = 1.sp
-            )
-        }
-    }
-}
-
-@Composable
-private fun DPadDirectionButton(
-    icon: ImageVector,
-    contentDescription: String,
-    onClick: () -> Unit,
-    testTag: String
-) {
-    val interaction = remember { MutableInteractionSource() }
-    val isPressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (isPressed) 0.88f else 1f, label = "dir_scale")
-
-    Box(
-        modifier = Modifier
-            .size(52.dp)
-            .scale(scale)
-            .clip(CircleShape)
-            .clickable(
-                interactionSource = interaction,
-                indication = null,
-                onClick = onClick
-            )
-            .testTag(testTag),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = if (isPressed) AccentCyan else TextPrimary,
-            modifier = Modifier.size(34.dp)
-        )
-    }
-}
-
-/**
- * Volume and Channel Rocker Pods
- */
-@Composable
-fun VolumeChannelRockers(
-    onCommand: (RemoteCommand) -> Unit,
-    isMuted: Boolean = false,
+    onOpenSettings: () -> Unit,
+    onOpenType: () -> Unit,
+    onHoldToTalk: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Volume Rocker Pod
-        RockerPod(
-            title = "VOL",
-            onUp = { onCommand(RemoteCommand.VOLUME_UP) },
-            onDown = { onCommand(RemoteCommand.VOLUME_DOWN) },
-            upIcon = Icons.Default.VolumeUp,
-            downIcon = Icons.Default.VolumeDown,
-            upTag = "vol_up_button",
-            downTag = "vol_down_button"
-        )
-
-        // Center Mute & Input Controls
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // MUTE button
-            TactileIconButton(
-                icon = if (isMuted) Icons.Default.VolumeOff else Icons.Default.VolumeMute,
-                contentDescription = "Mute",
-                onClick = { onCommand(RemoteCommand.MUTE) },
-                contentColor = if (isMuted) PowerRed else TextPrimary,
-                glowColor = if (isMuted) PowerRedGlow else null,
-                size = 50.dp,
-                testTag = "mute_button"
-            )
-
-            // SOURCE / INPUT button
-            TactileIconButton(
-                icon = Icons.Default.Input,
-                contentDescription = "Source Input",
-                onClick = { onCommand(RemoteCommand.INPUT) },
-                contentColor = AccentCyan,
-                size = 50.dp,
-                testTag = "source_input_button"
-            )
-        }
-
-        // Channel Rocker Pod
-        RockerPod(
-            title = "CH",
-            onUp = { onCommand(RemoteCommand.CHANNEL_UP) },
-            onDown = { onCommand(RemoteCommand.CHANNEL_DOWN) },
-            upIcon = Icons.Default.KeyboardArrowUp,
-            downIcon = Icons.Default.KeyboardArrowDown,
-            upTag = "ch_up_button",
-            downTag = "ch_down_button"
-        )
-    }
-}
-
-@Composable
-private fun RockerPod(
-    title: String,
-    onUp: () -> Unit,
-    onDown: () -> Unit,
-    upIcon: ImageVector,
-    downIcon: ImageVector,
-    upTag: String,
-    downTag: String,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier
-            .width(68.dp)
-            .height(148.dp)
-            .shadow(8.dp, RoundedCornerShape(34.dp)),
-        shape = RoundedCornerShape(34.dp),
-        color = ButtonSurface,
-        border = androidx.compose.foundation.BorderStroke(1.dp, ButtonBorder)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            // Top Section (Up)
-            RockerHalfButton(
-                icon = upIcon,
-                contentDescription = "$title Up",
-                onClick = onUp,
-                isTop = true,
-                testTag = upTag
-            )
-
-            // Center Label
-            Text(
-                text = title,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextSecondary,
-                letterSpacing = 1.sp
-            )
-
-            // Bottom Section (Down)
-            RockerHalfButton(
-                icon = downIcon,
-                contentDescription = "$title Down",
-                onClick = onDown,
-                isTop = false,
-                testTag = downTag
-            )
-        }
-    }
-}
-
-@Composable
-private fun RockerHalfButton(
-    icon: ImageVector,
-    contentDescription: String,
-    onClick: () -> Unit,
-    isTop: Boolean,
-    testTag: String
-) {
-    val interaction = remember { MutableInteractionSource() }
-    val isPressed by interaction.collectIsPressedAsState()
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp)
-            .clip(
-                if (isTop) RoundedCornerShape(topStart = 34.dp, topEnd = 34.dp)
-                else RoundedCornerShape(bottomStart = 34.dp, bottomEnd = 34.dp)
-            )
-            .background(if (isPressed) ButtonSurfacePressed else Color.Transparent)
-            .clickable(
-                interactionSource = interaction,
-                indication = null,
-                onClick = onClick
-            )
-            .testTag(testTag),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = if (isPressed) AccentCyan else TextPrimary,
-            modifier = Modifier.size(24.dp)
-        )
-    }
-}
-
-/**
- * Navigation Bar row (Back, Home, Menu)
- */
-@Composable
-fun SystemNavRow(
-    onCommand: (RemoteCommand) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        TactileIconButton(
-            icon = Icons.Default.ArrowBack,
-            contentDescription = "Back",
-            onClick = { onCommand(RemoteCommand.BACK) },
-            testTag = "nav_back_button"
-        )
-
-        TactileIconButton(
-            icon = Icons.Default.Home,
-            contentDescription = "Home",
-            onClick = { onCommand(RemoteCommand.HOME) },
-            contentColor = AccentCyan,
-            size = 60.dp,
-            iconSize = 28.dp,
-            testTag = "nav_home_button"
-        )
-
-        TactileIconButton(
-            icon = Icons.Default.Menu,
-            contentDescription = "Menu",
-            onClick = { onCommand(RemoteCommand.MENU) },
-            testTag = "nav_menu_button"
-        )
-    }
-}
-
-/**
- * Media playback row (Rewind, Play/Pause, Fast Forward, Stop)
- */
-@Composable
-fun MediaPlaybackRow(
-    onCommand: (RemoteCommand) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        TactileIconButton(
-            icon = Icons.Default.FastRewind,
-            contentDescription = "Rewind",
-            onClick = { onCommand(RemoteCommand.REWIND) },
-            size = 46.dp,
-            iconSize = 22.dp,
-            testTag = "media_rewind"
-        )
-
-        TactileIconButton(
-            icon = Icons.Default.PlayArrow,
-            contentDescription = "Play/Pause",
-            onClick = { onCommand(RemoteCommand.PLAY_PAUSE) },
-            size = 54.dp,
-            iconSize = 26.dp,
-            contentColor = AccentCyan,
-            glowColor = AccentCyanGlow,
-            testTag = "media_play_pause"
-        )
-
-        TactileIconButton(
-            icon = Icons.Default.FastForward,
-            contentDescription = "Fast Forward",
-            onClick = { onCommand(RemoteCommand.FAST_FORWARD) },
-            size = 46.dp,
-            iconSize = 22.dp,
-            testTag = "media_fast_forward"
-        )
-
-        TactileIconButton(
-            icon = Icons.Default.Stop,
-            contentDescription = "Stop",
-            onClick = { onCommand(RemoteCommand.STOP) },
-            size = 46.dp,
-            iconSize = 22.dp,
-            testTag = "media_stop"
-        )
-    }
-}
-
-/**
- * Quick App Launch Grid (Netflix, YouTube, Prime, Disney+, Spotify, Browser)
- */
-@Composable
-fun QuickAppsGrid(
-    onCommand: (RemoteCommand) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        UtilityActionButton(
+            icon = Icons.Default.Menu,
+            label = "Menu",
+            onClick = { onCommand(RemoteCommand.MENU) },
+            testTag = "utility_menu"
+        )
+
+        UtilityActionButton(
+            icon = Icons.Default.Settings,
+            label = "Settings",
+            onClick = onOpenSettings,
+            testTag = "utility_settings"
+        )
+
+        UtilityActionButton(
+            icon = Icons.Default.Mic,
+            label = "Hold to talk",
+            onClick = onHoldToTalk,
+            testTag = "utility_mic"
+        )
+
+        UtilityActionButton(
+            icon = Icons.Default.Keyboard,
+            label = "Type",
+            onClick = onOpenType,
+            testTag = "utility_type"
+        )
+    }
+}
+
+@Composable
+private fun UtilityActionButton(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    testTag: String
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val isPressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (isPressed) 0.90f else 1f, label = "util_scale")
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Surface(
+            modifier = Modifier
+                .size(54.dp)
+                .scale(scale)
+                .clip(RoundedCornerShape(16.dp))
+                .clickable(
+                    interactionSource = interaction,
+                    indication = null,
+                    onClick = onClick
+                )
+                .testTag(testTag),
+            shape = RoundedCornerShape(16.dp),
+            color = if (isPressed) Color(0xFF222F48) else UtilityCardBg,
+            border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
         ) {
-            AppButton(
-                title = "NETFLIX",
-                color = NetflixRed,
-                onClick = { onCommand(RemoteCommand.APP_NETFLIX) },
-                modifier = Modifier.weight(1f),
-                testTag = "app_netflix"
-            )
-            AppButton(
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = label,
+                    tint = if (isPressed) CyanAccent else Color(0xFFD6E2F0),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+        Text(
+            text = label,
+            color = TextGray,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
+
+/**
+ * Horizontal App Launcher Row: YouTube, Netflix, Prime, Disney+, Spotify, Edit
+ */
+@Composable
+fun AppLauncherCarousel(
+    onCommand: (RemoteCommand) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LazyRow(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp)
+    ) {
+        // YouTube (Red)
+        item {
+            AppTile(
                 title = "YouTube",
-                color = YouTubeRed,
+                backgroundBrush = Brush.verticalGradient(listOf(Color(0xFFFF3333), Color(0xFFCC0000))),
                 onClick = { onCommand(RemoteCommand.APP_YOUTUBE) },
-                modifier = Modifier.weight(1f),
-                testTag = "app_youtube"
-            )
+                testTag = "app_tile_youtube"
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp, 26.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color.White),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = "YouTube",
+                        tint = Color(0xFFE50914),
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            AppButton(
-                title = "prime video",
-                color = PrimeBlue,
+        // Netflix (Black/Red)
+        item {
+            AppTile(
+                title = "Netflix",
+                backgroundBrush = Brush.verticalGradient(listOf(Color(0xFF2B0A0D), Color(0xFF140204))),
+                onClick = { onCommand(RemoteCommand.APP_NETFLIX) },
+                testTag = "app_tile_netflix"
+            ) {
+                Text(
+                    text = "N",
+                    color = Color(0xFFE50914),
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = (-1).sp
+                )
+            }
+        }
+
+        // Prime Video (Teal/Blue)
+        item {
+            AppTile(
+                title = "Prime Video",
+                backgroundBrush = Brush.verticalGradient(listOf(Color(0xFF00A8E1), Color(0xFF007399))),
                 onClick = { onCommand(RemoteCommand.APP_PRIME) },
-                modifier = Modifier.weight(1f),
-                testTag = "app_prime"
-            )
-            AppButton(
-                title = "Disney+",
-                color = DisneyBlue,
-                onClick = { onCommand(RemoteCommand.APP_DISNEY) },
-                modifier = Modifier.weight(1f),
-                testTag = "app_disney"
-            )
+                testTag = "app_tile_prime"
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "prime video",
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "⌣",
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = (-4).dp)
+                    )
+                }
+            }
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            AppButton(
+        // Disney+ (Deep Blue/Purple)
+        item {
+            AppTile(
+                title = "Disney+",
+                backgroundBrush = Brush.verticalGradient(listOf(Color(0xFF283C86), Color(0xFF1A1A40))),
+                onClick = { onCommand(RemoteCommand.APP_DISNEY) },
+                testTag = "app_tile_disney"
+            ) {
+                Text(
+                    text = "Disney+",
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        // Spotify (Emerald Green)
+        item {
+            AppTile(
                 title = "Spotify",
-                color = SpotifyGreen,
+                backgroundBrush = Brush.verticalGradient(listOf(Color(0xFF1ED760), Color(0xFF159643))),
                 onClick = { onCommand(RemoteCommand.APP_SPOTIFY) },
-                modifier = Modifier.weight(1f),
-                testTag = "app_spotify"
-            )
-            AppButton(
-                title = "Browser",
-                color = AccentCyan,
-                onClick = { onCommand(RemoteCommand.APP_BROWSER) },
-                modifier = Modifier.weight(1f),
-                testTag = "app_browser"
-            )
+                testTag = "app_tile_spotify"
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        modifier = Modifier
+                            .width(22.dp)
+                            .height(3.dp)
+                            .clip(RoundedCornerShape(1.5.dp))
+                            .background(Color.White)
+                    )
+                    Spacer(modifier = Modifier.height(2.5.dp))
+                    Box(
+                        modifier = Modifier
+                            .width(18.dp)
+                            .height(3.dp)
+                            .clip(RoundedCornerShape(1.5.dp))
+                            .background(Color.White)
+                    )
+                    Spacer(modifier = Modifier.height(2.5.dp))
+                    Box(
+                        modifier = Modifier
+                            .width(14.dp)
+                            .height(3.dp)
+                            .clip(RoundedCornerShape(1.5.dp))
+                            .background(Color.White)
+                    )
+                }
+            }
+        }
+
+        // Edit / Pencil icon
+        item {
+            Surface(
+                modifier = Modifier
+                    .size(62.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .clickable { onCommand(RemoteCommand.MENU) },
+                shape = RoundedCornerShape(18.dp),
+                color = UtilityCardBg,
+                border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+            ) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit Apps",
+                        tint = TextGray,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun AppButton(
+private fun AppTile(
     title: String,
-    color: Color,
+    backgroundBrush: Brush,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    testTag: String
+    testTag: String,
+    content: @Composable () -> Unit
 ) {
     val interaction = remember { MutableInteractionSource() }
     val isPressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (isPressed) 0.92f else 1f, label = "app_scale")
 
     Surface(
-        modifier = modifier
-            .height(48.dp)
-            .shadow(4.dp, RoundedCornerShape(12.dp))
+        modifier = Modifier
+            .size(62.dp)
+            .scale(scale)
+            .clip(RoundedCornerShape(18.dp))
             .clickable(
                 interactionSource = interaction,
                 indication = null,
                 onClick = onClick
             )
             .testTag(testTag),
-        shape = RoundedCornerShape(12.dp),
-        color = if (isPressed) ButtonSurfacePressed else ButtonSurface,
-        border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.5f))
+        shape = RoundedCornerShape(18.dp),
+        color = Color.Transparent
     ) {
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .background(backgroundBrush),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = title,
-                color = color,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-                letterSpacing = 0.5.sp
-            )
+            content()
         }
     }
 }
 
 /**
- * Numeric Keypad with Color Keys
+ * Mode selector pills: [ D-Pad | Touchpad ]       [ Numbers ]
+ */
+@Composable
+fun ModeSelectorPillsRow(
+    isTouchpadActive: Boolean,
+    isNumbersActive: Boolean,
+    onSelectDpad: () -> Unit,
+    onSelectTouchpad: () -> Unit,
+    onSelectNumbers: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Combined pill: D-Pad and Touchpad
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = UtilityCardBg,
+            border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+        ) {
+            Row(
+                modifier = Modifier.padding(3.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // D-Pad Pill
+                val isDpad = !isTouchpadActive && !isNumbersActive
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(if (isDpad) CyanAccent else Color.Transparent)
+                        .clickable(onClick = onSelectDpad)
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                        .testTag("mode_pill_dpad"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.GridView,
+                            contentDescription = null,
+                            tint = if (isDpad) Color.Black else TextGray,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "D-Pad",
+                            color = if (isDpad) Color.Black else TextGray,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                // Touchpad Pill
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(if (isTouchpadActive) CyanAccent else Color.Transparent)
+                        .clickable(onClick = onSelectTouchpad)
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                        .testTag("mode_pill_touchpad"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.TouchApp,
+                            contentDescription = null,
+                            tint = if (isTouchpadActive) Color.Black else TextGray,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "Touchpad",
+                            color = if (isTouchpadActive) Color.Black else TextGray,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+
+        // Numbers Pill Button
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(20.dp))
+                .clickable(onClick = onSelectNumbers)
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .testTag("mode_pill_numbers"),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.GridView,
+                    contentDescription = null,
+                    tint = CyanAccent,
+                    modifier = Modifier.size(16.dp)
+                )
+                Text(
+                    text = "Numbers",
+                    color = CyanAccent,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The Exact Center Layout:
+ * [ VOL Rocker ]   [ Rounded Squircle D-Pad with OK ]   [ CH Rocker ]
+ */
+@Composable
+fun ExactCentralControlCluster(
+    onCommand: (RemoteCommand) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Left Vertical VOL Rocker
+        ExactVerticalRocker(
+            label = "VOL",
+            onPlus = { onCommand(RemoteCommand.VOLUME_UP) },
+            onMinus = { onCommand(RemoteCommand.VOLUME_DOWN) },
+            hasProgressFill = true,
+            modifier = Modifier.weight(0.24f),
+            plusTag = "vol_plus",
+            minusTag = "vol_minus"
+        )
+
+        Spacer(modifier = Modifier.width(10.dp))
+
+        // Large Center Rounded Squircle D-Pad
+        ExactSquircleDpad(
+            onCommand = onCommand,
+            modifier = Modifier.weight(0.52f)
+        )
+
+        Spacer(modifier = Modifier.width(10.dp))
+
+        // Right Vertical CH Rocker
+        ExactVerticalRocker(
+            label = "CH",
+            onPlus = { onCommand(RemoteCommand.CHANNEL_UP) },
+            onMinus = { onCommand(RemoteCommand.CHANNEL_DOWN) },
+            hasProgressFill = false,
+            modifier = Modifier.weight(0.24f),
+            plusTag = "ch_plus",
+            minusTag = "ch_minus"
+        )
+    }
+}
+
+/**
+ * Full-height rounded vertical rocker slider with + at top, label in middle, - at bottom
+ */
+@Composable
+fun ExactVerticalRocker(
+    label: String,
+    onPlus: () -> Unit,
+    onMinus: () -> Unit,
+    hasProgressFill: Boolean,
+    modifier: Modifier = Modifier,
+    plusTag: String,
+    minusTag: String
+) {
+    Surface(
+        modifier = modifier
+            .height(260.dp)
+            .clip(RoundedCornerShape(28.dp)),
+        shape = RoundedCornerShape(28.dp),
+        color = RockerBg,
+        border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Optional subtle dark cyan fill for volume rocker (as seen in screenshot)
+            if (hasProgressFill) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(130.dp)
+                        .align(Alignment.BottomCenter)
+                        .background(Color(0xFF0C3348))
+                )
+            }
+
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Top Plus button
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(80.dp)
+                        .clickable(onClick = onPlus)
+                        .testTag(plusTag),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "$label +",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                // Middle Label
+                Text(
+                    text = label,
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+
+                // Bottom Minus button
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(80.dp)
+                        .clickable(onClick = onMinus)
+                        .testTag(minusTag),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Remove,
+                        contentDescription = "$label -",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Center Large Squircle D-Pad with 4 chevron arrows and center Cyan circular OK button
+ */
+@Composable
+fun ExactSquircleDpad(
+    onCommand: (RemoteCommand) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .height(260.dp)
+            .shadow(12.dp, RoundedCornerShape(44.dp))
+            .clip(RoundedCornerShape(44.dp)),
+        shape = RoundedCornerShape(44.dp),
+        color = DpadDarkBg,
+        border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            // UP Chevron
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(70.dp)
+                    .align(Alignment.TopCenter)
+                    .clickable { onCommand(RemoteCommand.DPAD_UP) }
+                    .testTag("dpad_up"),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowUp,
+                    contentDescription = "Up",
+                    tint = Color.White,
+                    modifier = Modifier.size(34.dp)
+                )
+            }
+
+            // DOWN Chevron
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(70.dp)
+                    .align(Alignment.BottomCenter)
+                    .clickable { onCommand(RemoteCommand.DPAD_DOWN) }
+                    .testTag("dpad_down"),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowDown,
+                    contentDescription = "Down",
+                    tint = Color.White,
+                    modifier = Modifier.size(34.dp)
+                )
+            }
+
+            // LEFT Chevron
+            Box(
+                modifier = Modifier
+                    .width(70.dp)
+                    .height(100.dp)
+                    .align(Alignment.CenterStart)
+                    .clickable { onCommand(RemoteCommand.DPAD_LEFT) }
+                    .testTag("dpad_left"),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowLeft,
+                    contentDescription = "Left",
+                    tint = Color.White,
+                    modifier = Modifier.size(34.dp)
+                )
+            }
+
+            // RIGHT Chevron
+            Box(
+                modifier = Modifier
+                    .width(70.dp)
+                    .height(100.dp)
+                    .align(Alignment.CenterEnd)
+                    .clickable { onCommand(RemoteCommand.DPAD_RIGHT) }
+                    .testTag("dpad_right"),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowRight,
+                    contentDescription = "Right",
+                    tint = Color.White,
+                    modifier = Modifier.size(34.dp)
+                )
+            }
+
+            // Center Circular OK button (Bright Cyan)
+            val okInteraction = remember { MutableInteractionSource() }
+            val okPressed by okInteraction.collectIsPressedAsState()
+            val okScale by animateFloatAsState(if (okPressed) 0.90f else 1f, label = "ok_scale")
+
+            Surface(
+                modifier = Modifier
+                    .size(92.dp)
+                    .scale(okScale)
+                    .shadow(12.dp, CircleShape, spotColor = CyanAccent)
+                    .clip(CircleShape)
+                    .clickable(
+                        interactionSource = okInteraction,
+                        indication = null,
+                        onClick = { onCommand(RemoteCommand.OK) }
+                    )
+                    .testTag("dpad_ok_button"),
+                shape = CircleShape,
+                color = CyanAccent
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "OK",
+                        color = Color.Black,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 1.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Exact Home & Back Pill Row:
+ * [ ⌂ Home ]          [ ← Back ]
+ */
+@Composable
+fun ExactHomeBackRow(
+    onCommand: (RemoteCommand) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Home Pill Button
+        Surface(
+            modifier = Modifier
+                .weight(1f)
+                .height(52.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .clickable { onCommand(RemoteCommand.HOME) }
+                .testTag("btn_home"),
+            shape = RoundedCornerShape(16.dp),
+            color = UtilityCardBg,
+            border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Home,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Home",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+
+        // Back Pill Button
+        Surface(
+            modifier = Modifier
+                .weight(1f)
+                .height(52.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .clickable { onCommand(RemoteCommand.BACK) }
+                .testTag("btn_back"),
+            shape = RoundedCornerShape(16.dp),
+            color = UtilityCardBg,
+            border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Back",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Exact Bottom Media Bar:
+ * [ Mute ]   [ << ]   [ ▶ (Cyan Circle) ]   [ >> ]   [ ⓘ ]
+ */
+@Composable
+fun ExactBottomMediaBar(
+    onCommand: (RemoteCommand) -> Unit,
+    isMuted: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Mute button
+        Icon(
+            imageVector = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.Default.VolumeMute,
+            contentDescription = "Mute",
+            tint = if (isMuted) Color(0xFFFF5252) else Color.White,
+            modifier = Modifier
+                .size(24.dp)
+                .clickable { onCommand(RemoteCommand.MUTE) }
+                .testTag("media_mute")
+        )
+
+        // Rewind
+        Icon(
+            imageVector = Icons.Default.FastRewind,
+            contentDescription = "Rewind",
+            tint = Color.White,
+            modifier = Modifier
+                .size(26.dp)
+                .clickable { onCommand(RemoteCommand.REWIND) }
+                .testTag("media_rewind")
+        )
+
+        // Center Cyan Circular Play/Pause button
+        val playInteraction = remember { MutableInteractionSource() }
+        val isPressed by playInteraction.collectIsPressedAsState()
+        val playScale by animateFloatAsState(if (isPressed) 0.90f else 1f, label = "play_scale")
+
+        Surface(
+            modifier = Modifier
+                .size(52.dp)
+                .scale(playScale)
+                .clip(CircleShape)
+                .clickable(
+                    interactionSource = playInteraction,
+                    indication = null,
+                    onClick = { onCommand(RemoteCommand.PLAY_PAUSE) }
+                )
+                .testTag("media_play_pause"),
+            shape = CircleShape,
+            color = CyanAccent
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription = "Play/Pause",
+                    tint = Color.Black,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        }
+
+        // Fast Forward
+        Icon(
+            imageVector = Icons.Default.FastForward,
+            contentDescription = "Fast Forward",
+            tint = Color.White,
+            modifier = Modifier
+                .size(26.dp)
+                .clickable { onCommand(RemoteCommand.FAST_FORWARD) }
+                .testTag("media_fast_forward")
+        )
+
+        // Info
+        Icon(
+            imageVector = Icons.Default.Info,
+            contentDescription = "Info",
+            tint = Color.White,
+            modifier = Modifier
+                .size(24.dp)
+                .clickable { onCommand(RemoteCommand.MENU) }
+                .testTag("media_info")
+        )
+    }
+}
+
+/**
+ * Touchpad Gesture Navigation Surface
+ */
+@Composable
+fun TouchpadSurface(
+    onCommand: (RemoteCommand) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var accumulatedDx by remember { mutableFloatStateOf(0f) }
+    var accumulatedDy by remember { mutableFloatStateOf(0f) }
+    val swipeThreshold = 60f
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(260.dp)
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(28.dp))
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragStart = {
+                        accumulatedDx = 0f
+                        accumulatedDy = 0f
+                    },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        accumulatedDx += dragAmount.x
+                        accumulatedDy += dragAmount.y
+
+                        if (Math.abs(accumulatedDx) > swipeThreshold) {
+                            if (accumulatedDx > 0) onCommand(RemoteCommand.DPAD_RIGHT)
+                            else onCommand(RemoteCommand.DPAD_LEFT)
+                            accumulatedDx = 0f
+                            accumulatedDy = 0f
+                        } else if (Math.abs(accumulatedDy) > swipeThreshold) {
+                            if (accumulatedDy > 0) onCommand(RemoteCommand.DPAD_DOWN)
+                            else onCommand(RemoteCommand.DPAD_UP)
+                            accumulatedDx = 0f
+                            accumulatedDy = 0f
+                        }
+                    }
+                )
+            }
+            .clickable { onCommand(RemoteCommand.OK) }
+            .testTag("touchpad_surface"),
+        shape = RoundedCornerShape(28.dp),
+        color = DpadDarkBg,
+        border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+    ) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowUp,
+                    contentDescription = null,
+                    tint = TextGray,
+                    modifier = Modifier.size(24.dp)
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowLeft,
+                        contentDescription = null,
+                        tint = TextGray,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Text(
+                        text = "SWIPE TO NAVIGATE\nTAP FOR OK",
+                        textAlign = TextAlign.Center,
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = TextGray,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = TextGray,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Numeric Keypad
  */
 @Composable
 fun NumpadCluster(
@@ -706,54 +1050,22 @@ fun NumpadCluster(
         verticalArrangement = Arrangement.spacedBy(10.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Color keys row
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 6.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            ColorKeyButton(Color(0xFFE53935), "Red") { onCommand(RemoteCommand.COLOR_RED) }
-            ColorKeyButton(Color(0xFF43A047), "Green") { onCommand(RemoteCommand.COLOR_GREEN) }
-            ColorKeyButton(Color(0xFFFDD835), "Yellow") { onCommand(RemoteCommand.COLOR_YELLOW) }
-            ColorKeyButton(Color(0xFF1E88E5), "Blue") { onCommand(RemoteCommand.COLOR_BLUE) }
-        }
-
-        // 1 2 3
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
             NumButton("1") { onCommand(RemoteCommand.NUM_1) }
             NumButton("2") { onCommand(RemoteCommand.NUM_2) }
             NumButton("3") { onCommand(RemoteCommand.NUM_3) }
         }
-
-        // 4 5 6
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
             NumButton("4") { onCommand(RemoteCommand.NUM_4) }
             NumButton("5") { onCommand(RemoteCommand.NUM_5) }
             NumButton("6") { onCommand(RemoteCommand.NUM_6) }
         }
-
-        // 7 8 9
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
             NumButton("7") { onCommand(RemoteCommand.NUM_7) }
             NumButton("8") { onCommand(RemoteCommand.NUM_8) }
             NumButton("9") { onCommand(RemoteCommand.NUM_9) }
         }
-
-        // Guide, 0, OK
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
             NumButton("Guide", isSecondary = true) { onCommand(RemoteCommand.GUIDE) }
             NumButton("0") { onCommand(RemoteCommand.NUM_0) }
             NumButton("OK", isSecondary = true) { onCommand(RemoteCommand.OK) }
@@ -767,155 +1079,23 @@ private fun NumButton(
     isSecondary: Boolean = false,
     onClick: () -> Unit
 ) {
-    val interaction = remember { MutableInteractionSource() }
-    val isPressed by interaction.collectIsPressedAsState()
-
     Surface(
         modifier = Modifier
             .size(if (isSecondary) 64.dp else 60.dp)
-            .shadow(4.dp, CircleShape)
-            .clickable(
-                interactionSource = interaction,
-                indication = null,
-                onClick = onClick
-            )
+            .clip(CircleShape)
+            .clickable(onClick = onClick)
             .testTag("num_button_$label"),
         shape = CircleShape,
-        color = if (isPressed) ButtonSurfacePressed else ButtonSurface,
-        border = androidx.compose.foundation.BorderStroke(1.dp, ButtonBorder)
+        color = UtilityCardBg,
+        border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(
                 text = label,
-                color = if (isSecondary) AccentCyan else TextPrimary,
+                color = if (isSecondary) CyanAccent else Color.White,
                 fontWeight = FontWeight.Bold,
                 fontSize = if (label.length > 2) 13.sp else 20.sp
             )
-        }
-    }
-}
-
-@Composable
-private fun ColorKeyButton(
-    color: Color,
-    contentDescription: String,
-    onClick: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .width(52.dp)
-            .height(14.dp)
-            .clip(RoundedCornerShape(7.dp))
-            .background(color)
-            .clickable(onClick = onClick)
-            .testTag("color_key_${contentDescription.lowercase()}")
-    )
-}
-
-/**
- * Touchpad / Swipe Surface to swipe Up/Down/Left/Right or tap OK
- */
-@Composable
-fun TouchpadSurface(
-    onCommand: (RemoteCommand) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var accumulatedDx by remember { mutableFloatStateOf(0f) }
-    var accumulatedDy by remember { mutableFloatStateOf(0f) }
-    val swipeThreshold = 65f
-
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(240.dp)
-            .padding(horizontal = 24.dp)
-            .shadow(8.dp, RoundedCornerShape(24.dp))
-            .border(1.5.dp, ButtonBorder, RoundedCornerShape(24.dp))
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = {
-                        accumulatedDx = 0f
-                        accumulatedDy = 0f
-                    },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        accumulatedDx += dragAmount.x
-                        accumulatedDy += dragAmount.y
-
-                        if (Math.abs(accumulatedDx) > swipeThreshold) {
-                            if (accumulatedDx > 0) {
-                                onCommand(RemoteCommand.DPAD_RIGHT)
-                            } else {
-                                onCommand(RemoteCommand.DPAD_LEFT)
-                            }
-                            accumulatedDx = 0f
-                            accumulatedDy = 0f
-                        } else if (Math.abs(accumulatedDy) > swipeThreshold) {
-                            if (accumulatedDy > 0) {
-                                onCommand(RemoteCommand.DPAD_DOWN)
-                            } else {
-                                onCommand(RemoteCommand.DPAD_UP)
-                            }
-                            accumulatedDx = 0f
-                            accumulatedDy = 0f
-                        }
-                    }
-                )
-            }
-            .clickable { onCommand(RemoteCommand.OK) }
-            .testTag("touchpad_surface"),
-        shape = RoundedCornerShape(24.dp),
-        color = ButtonSurface
-    ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowUp,
-                    contentDescription = null,
-                    tint = TextMuted,
-                    modifier = Modifier.size(24.dp)
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowLeft,
-                        contentDescription = null,
-                        tint = TextMuted,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Text(
-                        text = "SWIPE TO NAVIGATE\nTAP FOR OK",
-                        textAlign = TextAlign.Center,
-                        color = TextSecondary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        letterSpacing = 1.sp
-                    )
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowRight,
-                        contentDescription = null,
-                        tint = TextMuted,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowDown,
-                    contentDescription = null,
-                    tint = TextMuted,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
         }
     }
 }
