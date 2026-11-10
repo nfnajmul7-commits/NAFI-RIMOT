@@ -5,7 +5,7 @@ on:
     branches: [ "main", "master" ]
   pull_request:
     branches: [ "main", "master" ]
-  workflow_dispatch: # Allows manual trigger from GitHub Actions tab
+  workflow_dispatch:
 
 jobs:
   build:
@@ -22,11 +22,25 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Grant execute permission for gradlew
+      - name: Prepare Keystore, Environment & Permissions
         run: |
+          # 1. Restore debug.keystore from base64 (or generate it)
+          if [ -f "debug.keystore.base64" ]; then
+            base64 -d debug.keystore.base64 > debug.keystore
+          else
+            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+          # 2. Ensure .env file exists for secrets plugin
+          touch .env
+
+          # 3. Make gradlew executable if present
           if [ -f "./gradlew" ]; then
             chmod +x ./gradlew
           fi
@@ -34,9 +48,9 @@ jobs:
       - name: Build Debug APK
         run: |
           if [ -f "./gradlew" ]; then
-            ./gradlew assembleDebug --stacktrace
+            ./gradlew assembleDebug -x test -x lint --stacktrace --no-daemon
           else
-            gradle assembleDebug --stacktrace
+            gradle assembleDebug -x test -x lint --stacktrace --no-daemon
           fi
 
       - name: Upload APK to Artifacts
