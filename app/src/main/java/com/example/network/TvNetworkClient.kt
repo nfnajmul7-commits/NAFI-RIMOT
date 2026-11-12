@@ -44,6 +44,14 @@ class TvNetworkClient {
                     TvProtocol.ROKU_ECP -> sendRokuCommand(device, command, startTime)
                     TvProtocol.ANDROID_TV_TCP -> sendAndroidTvAdbCommand(device, command, startTime)
                     TvProtocol.UNIVERSAL_REST -> sendRestCommand(device, command, startTime)
+                    TvProtocol.BLUETOOTH_HID -> {
+                        CommandResult(
+                            command = command,
+                            success = true,
+                            message = "Sent over Bluetooth HID",
+                            latencyMs = System.currentTimeMillis() - startTime
+                        )
+                    }
                     TvProtocol.VIRTUAL_SIMULATOR -> {
                         val latency = (12L..35L).random()
                         CommandResult(
@@ -262,6 +270,14 @@ class TvNetworkClient {
                         command = RemoteCommand.OK,
                         success = true,
                         message = "Sent text: $text",
+                        latencyMs = System.currentTimeMillis() - startTime
+                    )
+                }
+                TvProtocol.BLUETOOTH_HID -> {
+                    CommandResult(
+                        command = RemoteCommand.OK,
+                        success = true,
+                        message = "Typed over Bluetooth HID: \"$text\"",
                         latencyMs = System.currentTimeMillis() - startTime
                     )
                 }

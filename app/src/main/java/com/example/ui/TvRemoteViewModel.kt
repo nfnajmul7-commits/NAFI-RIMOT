@@ -42,6 +42,9 @@ class TvRemoteViewModel(application: Application) : AndroidViewModel(application
 
     val connectedDevice: StateFlow<TvDevice?> = repository.connectedDevice
     val connectionStatus: StateFlow<ConnectionStatus> = repository.connectionStatus
+    val isBluetoothMode: StateFlow<Boolean> = repository.isBluetoothMode
+    val bluetoothStatus: StateFlow<com.example.bluetooth.BluetoothStatus> = repository.bluetoothManager.status
+    val bluetoothDeviceName: StateFlow<String?> = repository.bluetoothManager.connectedDeviceName
     val discoveredDevices: StateFlow<List<TvDevice>> = repository.discoveryManager.discoveredDevices
     val isScanning: StateFlow<Boolean> = repository.discoveryManager.isScanning
     val recentLatency: StateFlow<Long?> = repository.recentLatency
@@ -52,6 +55,22 @@ class TvRemoteViewModel(application: Application) : AndroidViewModel(application
 
     private val _uiState = MutableStateFlow(RemoteUiState())
     val uiState: StateFlow<RemoteUiState> = _uiState.asStateFlow()
+
+    fun setBluetoothMode(enabled: Boolean) {
+        repository.setBluetoothMode(enabled)
+    }
+
+    fun makePhoneDiscoverable() {
+        repository.makePhoneDiscoverable()
+    }
+
+    fun connectBluetoothTv(address: String = "b4:04:18:97:7b:c3") {
+        repository.connectBluetoothAddress(address)
+    }
+
+    fun initBluetoothProfile() {
+        repository.bluetoothManager.initHidProfile()
+    }
 
     fun sendCommand(command: RemoteCommand) {
         viewModelScope.launch {

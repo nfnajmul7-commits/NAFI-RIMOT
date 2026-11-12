@@ -83,5 +83,14 @@ class ExampleRobolectricTest {
         assertEquals("192.168.1.100", manualDevice.ipAddress)
         assertEquals(8060, manualDevice.port)
         assertEquals(manualDevice.id, repository.connectedDevice.value?.id)
+
+        // Test Bluetooth Mode switching
+        repository.setBluetoothMode(true)
+        assertTrue(repository.isBluetoothMode.value)
+        assertEquals(TvProtocol.BLUETOOTH_HID, repository.connectedDevice.value?.protocol)
+
+        // Switch back to Wi-Fi Mode
+        repository.setBluetoothMode(false)
+        assertFalse(repository.isBluetoothMode.value)
     }
 }

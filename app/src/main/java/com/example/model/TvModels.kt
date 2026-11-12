@@ -19,6 +19,11 @@ enum class TvProtocol(val displayName: String, val defaultPort: Int, val descrip
         defaultPort = 8080,
         description = "JSON HTTP POST /api/command endpoint for smart TV bridges"
     ),
+    BLUETOOTH_HID(
+        displayName = "Bluetooth HID Remote",
+        defaultPort = 0,
+        description = "Direct Bluetooth wireless remote accessory for Android TV"
+    ),
     VIRTUAL_SIMULATOR(
         displayName = "Virtual TV Simulator",
         defaultPort = 0,

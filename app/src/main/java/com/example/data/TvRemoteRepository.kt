@@ -14,6 +14,7 @@ import com.example.model.TvProtocol
 import com.example.model.VirtualTvState
 import com.example.network.TvNetworkClient
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,6 +37,11 @@ class TvRemoteRepository(
         context.getSharedPreferences("smart_tv_remote_prefs", Context.MODE_PRIVATE)
 
     val discoveryManager: NsdTvDiscoveryManager = NsdTvDiscoveryManager(context, scope)
+    val bluetoothManager: com.example.bluetooth.BluetoothRemoteManager =
+        com.example.bluetooth.BluetoothRemoteManager(context, scope)
+
+    private val _isBluetoothMode = MutableStateFlow(false)
+    val isBluetoothMode: StateFlow<Boolean> = _isBluetoothMode.asStateFlow()
 
     private val _connectedDevice = MutableStateFlow<TvDevice?>(null)
     val connectedDevice: StateFlow<TvDevice?> = _connectedDevice.asStateFlow()
@@ -68,7 +74,35 @@ class TvRemoteRepository(
 
     init {
         loadSavedDevices()
-        // Auto-select initial device (default to virtual demo TV for immediate out-of-the-box readiness)
+
+        // Sync connection state with Bluetooth HID profile when in Bluetooth mode
+        scope.launch {
+            bluetoothManager.status.collect { status ->
+                if (_isBluetoothMode.value) {
+                    _connectionStatus.value = when (status) {
+                        com.example.bluetooth.BluetoothStatus.CONNECTED -> ConnectionStatus.CONNECTED
+                        com.example.bluetooth.BluetoothStatus.CONNECTING,
+                        com.example.bluetooth.BluetoothStatus.REGISTERING -> ConnectionStatus.CONNECTING
+                        com.example.bluetooth.BluetoothStatus.DISCONNECTED,
+                        com.example.bluetooth.BluetoothStatus.DISABLED,
+                        com.example.bluetooth.BluetoothStatus.UNSUPPORTED -> ConnectionStatus.DISCONNECTED
+                    }
+                }
+            }
+        }
+
+        scope.launch {
+            bluetoothManager.connectedDeviceName.collect { name ->
+                if (_isBluetoothMode.value && name != null) {
+                    val current = _connectedDevice.value
+                    if (current != null) {
+                        _connectedDevice.value = current.copy(name = name)
+                    }
+                }
+            }
+        }
+
+        // Auto-select initial device (default to Android TV Box 192.168.0.100 on port 5555)
         val rawInitial = _savedDevices.value.firstOrNull() ?: discoveryManager.discoveredDevices.value.firstOrNull()
         val initialDevice = if (rawInitial != null && rawInitial.ipAddress == "192.168.0.100" && rawInitial.port != 5555) {
             rawInitial.copy(port = 5555, protocol = TvProtocol.ANDROID_TV_TCP)
@@ -89,9 +123,50 @@ class TvRemoteRepository(
     }
 
     fun connectToDevice(device: TvDevice) {
+        _isBluetoothMode.value = (device.protocol == TvProtocol.BLUETOOTH_HID)
         _connectedDevice.value = device
         _connectionStatus.value = ConnectionStatus.CONNECTED
         saveDevice(device)
+    }
+
+    fun setBluetoothMode(enabled: Boolean) {
+        _isBluetoothMode.value = enabled
+        if (enabled) {
+            val devName = bluetoothManager.connectedDeviceName.value ?: "Android TV Box"
+            val btDevice = TvDevice(
+                id = "bt_tv_box",
+                name = devName,
+                ipAddress = "Bluetooth HID",
+                port = 0,
+                protocol = TvProtocol.BLUETOOTH_HID,
+                isSaved = true
+            )
+            _connectedDevice.value = btDevice
+            _connectionStatus.value = if (bluetoothManager.status.value == com.example.bluetooth.BluetoothStatus.CONNECTED) {
+                ConnectionStatus.CONNECTED
+            } else {
+                ConnectionStatus.CONNECTING
+            }
+        } else {
+            val wifiDevice = _savedDevices.value.firstOrNull { it.protocol != TvProtocol.BLUETOOTH_HID }
+                ?: TvDevice(
+                    id = "192.168.0.100:5555",
+                    name = "Android TV Box",
+                    ipAddress = "192.168.0.100",
+                    port = 5555,
+                    protocol = TvProtocol.ANDROID_TV_TCP,
+                    isSaved = true
+                )
+            connectToDevice(wifiDevice)
+        }
+    }
+
+    fun makePhoneDiscoverable() {
+        bluetoothManager.makePhoneDiscoverable()
+    }
+
+    fun connectBluetoothAddress(address: String): Boolean {
+        return bluetoothManager.connectByAddress(address)
     }
 
     fun disconnect() {
@@ -101,17 +176,27 @@ class TvRemoteRepository(
     }
 
     /**
-     * Executes remote control command with network transmission, tactile vibration, and result logging
+     * Executes remote control command with network or Bluetooth transmission, tactile vibration, and result logging
      */
     suspend fun executeCommand(command: RemoteCommand): CommandResult {
         triggerHapticClick()
 
         val device = _connectedDevice.value
+        val useBluetooth = _isBluetoothMode.value || device?.protocol == TvProtocol.BLUETOOTH_HID
+
+        // Send via Bluetooth HID if in Bluetooth mode
+        if (useBluetooth) {
+            val result = bluetoothManager.sendCommand(command)
+            _recentLatency.value = result.latencyMs
+            updateResult(result)
+            return result
+        }
+
         if (device == null) {
             val failedResult = CommandResult(
                 command = command,
                 success = false,
-                message = "No TV connected. Please select or add a TV.",
+                message = "টিভি কানেক্ট করা নেই। Wi-Fi অথবা ব্লুটুথ সিলেক্ট করুন।",
                 latencyMs = 0
             )
             updateResult(failedResult)
@@ -123,7 +208,7 @@ class TvRemoteRepository(
             updateVirtualTvState(command)
         }
 
-        // Send over network (or simulation)
+        // Send over network (ADB socket / HTTP)
         val result = networkClient.sendCommand(device, command)
         _recentLatency.value = result.latencyMs
         updateResult(result)
@@ -133,11 +218,20 @@ class TvRemoteRepository(
     suspend fun sendTypedText(text: String): CommandResult {
         triggerHapticClick()
         val device = _connectedDevice.value
+        val useBluetooth = _isBluetoothMode.value || device?.protocol == TvProtocol.BLUETOOTH_HID
+
+        if (useBluetooth) {
+            val result = bluetoothManager.sendTypedText(text)
+            _recentLatency.value = result.latencyMs
+            updateResult(result)
+            return result
+        }
+
         if (device == null) {
             val failedResult = CommandResult(
                 command = RemoteCommand.OK,
                 success = false,
-                message = "No TV connected.",
+                message = "টিভি কানেক্ট করা নেই।",
                 latencyMs = 0
             )
             updateResult(failedResult)
