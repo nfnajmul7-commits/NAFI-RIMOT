@@ -176,7 +176,7 @@ fun TvRemoteScreen(
                                     text = if (connectionStatus == ConnectionStatus.CONNECTED && connectedDevice?.isVirtual == false)
                                         "ADB Port ${connectedDevice?.port ?: 5555} • সংযুক্ত"
                                     else
-                                        "কানেক্ট করতে টেস্ট চাপুন",
+                                        "ADB Port 5555 • টেস্ট বাটন চাপুন",
                                     color = if (connectionStatus == ConnectionStatus.CONNECTED && connectedDevice?.isVirtual == false)
                                         StatusGreen
                                     else
@@ -190,10 +190,31 @@ fun TvRemoteScreen(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            // If port is incorrectly set to 8080 or other port, offer instant 1-click switch to 5555
+                            if (connectedDevice?.port != 5555) {
+                                Button(
+                                    onClick = {
+                                        val ip = connectedDevice?.ipAddress ?: "192.168.0.100"
+                                        viewModel.addManualDevice("Android TV Box", ip, 5555, com.example.model.TvProtocol.ANDROID_TV_TCP)
+                                        viewModel.testPing(ip, 5555)
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = PowerRed,
+                                        contentColor = Color.White
+                                    ),
+                                    shape = RoundedCornerShape(6.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                    modifier = Modifier.height(30.dp)
+                                ) {
+                                    Text("পোর্ট ৫৫৫৫", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
                             Button(
                                 onClick = {
                                     val ip = connectedDevice?.ipAddress ?: "192.168.0.100"
-                                    val port = connectedDevice?.port ?: 5555
+                                    val port = 5555
+                                    viewModel.addManualDevice("Android TV Box", ip, port, com.example.model.TvProtocol.ANDROID_TV_TCP)
                                     viewModel.testPing(ip, port)
                                 },
                                 enabled = !uiState.isTestingPing,

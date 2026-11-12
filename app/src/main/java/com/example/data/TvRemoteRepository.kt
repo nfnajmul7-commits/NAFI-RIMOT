@@ -69,7 +69,12 @@ class TvRemoteRepository(
     init {
         loadSavedDevices()
         // Auto-select initial device (default to virtual demo TV for immediate out-of-the-box readiness)
-        val initialDevice = _savedDevices.value.firstOrNull() ?: discoveryManager.discoveredDevices.value.firstOrNull()
+        val rawInitial = _savedDevices.value.firstOrNull() ?: discoveryManager.discoveredDevices.value.firstOrNull()
+        val initialDevice = if (rawInitial != null && rawInitial.ipAddress == "192.168.0.100" && rawInitial.port != 5555) {
+            rawInitial.copy(port = 5555, protocol = TvProtocol.ANDROID_TV_TCP)
+        } else {
+            rawInitial
+        }
         if (initialDevice != null) {
             connectToDevice(initialDevice)
         }
@@ -158,25 +163,50 @@ class TvRemoteRepository(
     }
 
     suspend fun diagnoseTvConnection(ip: String, port: Int): String {
-        if (port == 5555) {
-            val adbTest = com.example.network.AdbTvClient.testAdbConnection(ip, port)
+        // If testing Android TV or 192.168.0.100, always prioritize port 5555 (ADB)
+        val targetPort = if (ip == "192.168.0.100" && (port == 8080 || port == 8060)) 5555 else port
+
+        if (targetPort == 5555) {
+            val adbTest = com.example.network.AdbTvClient.testAdbConnection(ip, targetPort)
             when (adbTest.second) {
-                com.example.network.AdbAuthStatus.CONNECTED -> return "সফল! TV Box কানেক্টেড (Port 5555 Active)"
-                com.example.network.AdbAuthStatus.WAITING_FOR_USER_AUTH -> return "টিভি স্ক্রিনে 'Allow USB Debugging' ডায়ালগে OK/Allow চাপুন!"
+                com.example.network.AdbAuthStatus.CONNECTED -> {
+                    val device = TvDevice(
+                        id = "$ip:5555",
+                        name = "Android TV Box",
+                        ipAddress = ip,
+                        port = 5555,
+                        protocol = TvProtocol.ANDROID_TV_TCP,
+                        isSaved = true
+                    )
+                    connectToDevice(device)
+                    return "সফল! TV Box কানেক্টেড (Port 5555 Active)"
+                }
+                com.example.network.AdbAuthStatus.WAITING_FOR_USER_AUTH -> {
+                    val device = TvDevice(
+                        id = "$ip:5555",
+                        name = "Android TV Box",
+                        ipAddress = ip,
+                        port = 5555,
+                        protocol = TvProtocol.ANDROID_TV_TCP,
+                        isSaved = true
+                    )
+                    connectToDevice(device)
+                    return "টিভি স্ক্রিনে 'Allow USB Debugging' ডায়ালগে OK/Allow চাপুন!"
+                }
                 com.example.network.AdbAuthStatus.PORT_UNREACHABLE -> {
                     val openPorts = scanTvPorts(ip)
                     return if (openPorts.isNotEmpty()) {
                         val first = openPorts.first()
                         "Port 5555 বন্ধ, তবে Port ${first.first} (${first.second}) পাওয়া গেছে।"
                     } else {
-                        "টিভি বক্সে 192.168.0.100 পাওয়া গেছে, কিন্তু Port 5555 বন্ধ। TV Settings > About > Build এ ৭ বার ক্লিক করে Developer Options থেকে Network / USB Debugging অন করুন।"
+                        "USB Debugging অন করার পর টিভি বক্সটি একবার রিস্টার্ট (Reboot) দিন, যাতে Port 5555 নেটওয়ার্কে ওপেন হয়।"
                     }
                 }
                 else -> {}
             }
         }
-        val (ok, ms) = testDevicePing(ip, port)
-        return if (ok) "Online! Response in ${ms}ms (Port $port)" else "Port $port unreachable on $ip"
+        val (ok, ms) = testDevicePing(ip, targetPort)
+        return if (ok) "Online! Response in ${ms}ms (Port $targetPort)" else "Port $targetPort unreachable on $ip"
     }
 
     suspend fun scanTvPorts(ip: String): List<Pair<Int, String>> {
@@ -330,17 +360,26 @@ class TvRemoteRepository(
             val list = mutableListOf<TvDevice>()
             for (i in 0 until jsonArray.length()) {
                 val obj = jsonArray.getJSONObject(i)
-                val protocol = try {
+                val ip = obj.optString("ip")
+                var port = obj.optInt("port", 5555)
+                var protocol = try {
                     TvProtocol.valueOf(obj.optString("protocol", TvProtocol.ANDROID_TV_TCP.name))
                 } catch (_: Exception) {
                     TvProtocol.ANDROID_TV_TCP
                 }
+                // Automatic migration for TV Box: force port 5555 for ADB
+                if (ip == "192.168.0.100" || protocol == TvProtocol.ANDROID_TV_TCP) {
+                    if (port == 8080 || port == 8060 || port == 0) {
+                        port = 5555
+                    }
+                    protocol = TvProtocol.ANDROID_TV_TCP
+                }
                 list.add(
                     TvDevice(
-                        id = obj.optString("id", "${obj.optString("ip")}:${obj.optInt("port")}"),
-                        name = obj.optString("name", "Saved TV"),
-                        ipAddress = obj.optString("ip"),
-                        port = obj.optInt("port", 5555),
+                        id = "$ip:$port",
+                        name = if (ip == "192.168.0.100") "Android TV Box" else obj.optString("name", "Saved TV"),
+                        ipAddress = ip,
+                        port = port,
                         protocol = protocol,
                         serviceType = obj.optString("serviceType", ""),
                         isSaved = true
