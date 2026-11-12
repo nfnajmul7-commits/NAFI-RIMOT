@@ -118,6 +118,18 @@ class TvRemoteViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun autoDetectAndConnect(ip: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isTestingPing = true, pingTestResult = null)
+            val result = repository.autoDetectAndConnect(ip)
+            _uiState.value = _uiState.value.copy(isTestingPing = false, pingTestResult = result.second)
+        }
+    }
+
+    fun getAllBondedDevices(): List<android.bluetooth.BluetoothDevice> {
+        return repository.bluetoothManager.getAllBondedDevices()
+    }
+
     fun setActiveTab(tab: RemoteTab) {
         _uiState.value = _uiState.value.copy(activeTab = tab)
     }

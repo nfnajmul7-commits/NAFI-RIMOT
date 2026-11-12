@@ -256,51 +256,59 @@ class TvRemoteRepository(
         return networkClient.pingDevice(ip, port)
     }
 
-    suspend fun diagnoseTvConnection(ip: String, port: Int): String {
-        // If testing Android TV or 192.168.0.100, always prioritize port 5555 (ADB)
-        val targetPort = if (ip == "192.168.0.100" && (port == 8080 || port == 8060)) 5555 else port
+    suspend fun autoDetectAndConnect(ip: String): Pair<Boolean, String> {
+        val targetIp = ip.trim()
+        if (targetIp.isBlank()) return Pair(false, "IP ঠিকানা প্রদান করুন")
 
-        if (targetPort == 5555) {
-            val adbTest = com.example.network.AdbTvClient.testAdbConnection(ip, targetPort)
-            when (adbTest.second) {
-                com.example.network.AdbAuthStatus.CONNECTED -> {
-                    val device = TvDevice(
-                        id = "$ip:5555",
-                        name = "Android TV Box",
-                        ipAddress = ip,
-                        port = 5555,
-                        protocol = TvProtocol.ANDROID_TV_TCP,
-                        isSaved = true
-                    )
-                    connectToDevice(device)
-                    return "সফল! TV Box কানেক্টেড (Port 5555 Active)"
-                }
-                com.example.network.AdbAuthStatus.WAITING_FOR_USER_AUTH -> {
-                    val device = TvDevice(
-                        id = "$ip:5555",
-                        name = "Android TV Box",
-                        ipAddress = ip,
-                        port = 5555,
-                        protocol = TvProtocol.ANDROID_TV_TCP,
-                        isSaved = true
-                    )
-                    connectToDevice(device)
-                    return "টিভি স্ক্রিনে 'Allow USB Debugging' ডায়ালগে OK/Allow চাপুন!"
-                }
-                com.example.network.AdbAuthStatus.PORT_UNREACHABLE -> {
-                    val openPorts = scanTvPorts(ip)
-                    return if (openPorts.isNotEmpty()) {
-                        val first = openPorts.first()
-                        "Port 5555 বন্ধ, তবে Port ${first.first} (${first.second}) পাওয়া গেছে।"
-                    } else {
-                        "USB Debugging অন করার পর টিভি বক্সটি একবার রিস্টার্ট (Reboot) দিন, যাতে Port 5555 নেটওয়ার্কে ওপেন হয়।"
-                    }
-                }
-                else -> {}
+        // 1. Test Port 5555 (ADB)
+        val adbTest = com.example.network.AdbTvClient.testAdbConnection(targetIp, 5555)
+        if (adbTest.first) {
+            val dev = TvDevice(
+                id = "$targetIp:5555",
+                name = "China Android TV Box",
+                ipAddress = targetIp,
+                port = 5555,
+                protocol = TvProtocol.ANDROID_TV_TCP,
+                isSaved = true
+            )
+            connectToDevice(dev)
+            val msg = if (adbTest.second == com.example.network.AdbAuthStatus.WAITING_FOR_USER_AUTH) {
+                "সফল! পোর্ট ৫৫৫৫ সক্রিয়। টিভি স্ক্রিনে 'Allow USB Debugging' ডায়ালগে OK চাপুন।"
+            } else {
+                "সফল! চায়না টিভি বক্স কানেক্টেড (Port 5555 ADB Active)"
             }
+            return Pair(true, msg)
         }
-        val (ok, ms) = testDevicePing(ip, targetPort)
-        return if (ok) "Online! Response in ${ms}ms (Port $targetPort)" else "Port $targetPort unreachable on $ip"
+
+        // 2. Scan all known Android TV / China TV Box ports in parallel
+        val openPorts = networkClient.scanTvPorts(targetIp)
+        if (openPorts.isNotEmpty()) {
+            val (foundPort, serviceName) = openPorts.first()
+            val proto = when (foundPort) {
+                8008, 8080 -> TvProtocol.UNIVERSAL_REST
+                else -> TvProtocol.ANDROID_TV_TCP
+            }
+            val autoDev = TvDevice(
+                id = "$targetIp:$foundPort",
+                name = "China TV Box ($serviceName)",
+                ipAddress = targetIp,
+                port = foundPort,
+                protocol = proto,
+                isSaved = true
+            )
+            connectToDevice(autoDev)
+            return Pair(true, "সফল! $serviceName পাওয়া গেছে (Port $foundPort অটো-কানেক্টেড)।")
+        }
+
+        return Pair(
+            false,
+            "Wi-Fi পোর্ট বন্ধ পাওয়া গেছে। সমাধান: উপরের 'ᛒ ব্লুটুথ রিমোট' ট্যাবে চাপ দিয়ে টিভিতে পেয়ার করুন (১০০% কাজ করবে) অথবা টিভিতে Developer Options এ গিয়ে USB Debugging অন করে টিভি রিস্টার্ট দিন।"
+        )
+    }
+
+    suspend fun diagnoseTvConnection(ip: String, port: Int): String {
+        val result = autoDetectAndConnect(ip)
+        return result.second
     }
 
     suspend fun scanTvPorts(ip: String): List<Pair<Int, String>> {

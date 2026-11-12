@@ -354,30 +354,35 @@ fun TvRemoteScreen(
                                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    if (connectedDevice?.port != 5555) {
-                                        Button(
-                                            onClick = {
-                                                val ip = connectedDevice?.ipAddress ?: "192.168.0.100"
-                                                viewModel.addManualDevice("Android TV Box", ip, 5555, com.example.model.TvProtocol.ANDROID_TV_TCP)
-                                                viewModel.testPing(ip, 5555)
-                                            },
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = PowerRed,
-                                                contentColor = Color.White
-                                            ),
-                                            shape = RoundedCornerShape(6.dp),
-                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                            modifier = Modifier.height(30.dp)
-                                        ) {
-                                            Text("পোর্ট ৫৫৫৫", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Button(
+                                        onClick = {
+                                            val ip = connectedDevice?.ipAddress ?: "192.168.0.100"
+                                            viewModel.autoDetectAndConnect(ip)
+                                        },
+                                        enabled = !uiState.isTestingPing,
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = Color(0xFF00557A),
+                                            contentColor = Color.White
+                                        ),
+                                        shape = RoundedCornerShape(6.dp),
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                        modifier = Modifier.height(30.dp)
+                                    ) {
+                                        if (uiState.isTestingPing) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(12.dp),
+                                                color = Color.White,
+                                                strokeWidth = 2.dp
+                                            )
+                                        } else {
+                                            Text("⚡ অটো-ডিটেক্ট", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                         }
                                     }
 
                                     Button(
                                         onClick = {
                                             val ip = connectedDevice?.ipAddress ?: "192.168.0.100"
-                                            val port = 5555
-                                            viewModel.addManualDevice("Android TV Box", ip, port, com.example.model.TvProtocol.ANDROID_TV_TCP)
+                                            val port = connectedDevice?.port ?: 5555
                                             viewModel.testPing(ip, port)
                                         },
                                         enabled = !uiState.isTestingPing,
@@ -389,15 +394,7 @@ fun TvRemoteScreen(
                                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                         modifier = Modifier.height(30.dp)
                                     ) {
-                                        if (uiState.isTestingPing) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(12.dp),
-                                                color = AccentCyan,
-                                                strokeWidth = 2.dp
-                                            )
-                                        } else {
-                                            Text("টেস্ট", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                        }
+                                        Text("টেস্ট", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                     }
 
                                     Button(

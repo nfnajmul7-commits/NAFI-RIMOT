@@ -216,6 +216,9 @@ class BluetoothRemoteManager(
      * Makes the phone discoverable to the TV box in "Remotes & Accessories"
      */
     fun makePhoneDiscoverable() {
+        if (hidDevice == null) {
+            initHidProfile()
+        }
         try {
             val intent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
                 putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)
@@ -433,6 +436,9 @@ class BluetoothRemoteManager(
      */
     @SuppressLint("MissingPermission")
     fun connectByAddress(address: String): Boolean {
+        if (hidDevice == null) {
+            initHidProfile()
+        }
         val hid = hidDevice ?: return false
         val adapter = bluetoothAdapter ?: return false
         return try {
@@ -441,6 +447,18 @@ class BluetoothRemoteManager(
         } catch (e: Exception) {
             Log.w(TAG, "Failed to connect to address $address: ${e.message}")
             false
+        }
+    }
+
+    /**
+     * Get all currently bonded Bluetooth devices
+     */
+    @SuppressLint("MissingPermission")
+    fun getAllBondedDevices(): List<BluetoothDevice> {
+        return try {
+            bluetoothAdapter?.bondedDevices?.toList() ?: emptyList()
+        } catch (_: Exception) {
+            emptyList()
         }
     }
 }

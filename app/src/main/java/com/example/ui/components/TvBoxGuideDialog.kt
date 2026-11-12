@@ -175,7 +175,16 @@ fun TvBoxGuideDialog(
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             BoxTypeChip(
-                                label = "Android Box",
+                                label = "চায়না টিভি বক্স",
+                                isSelected = selectedBoxType == "China TV Box",
+                                onClick = {
+                                    selectedBoxType = "China TV Box"
+                                    port = 5555
+                                    protocol = TvProtocol.ANDROID_TV_TCP
+                                }
+                            )
+                            BoxTypeChip(
+                                label = "Android TV",
                                 isSelected = selectedBoxType == "Android TV Box",
                                 onClick = {
                                     selectedBoxType = "Android TV Box"
@@ -184,21 +193,12 @@ fun TvBoxGuideDialog(
                                 }
                             )
                             BoxTypeChip(
-                                label = "Universal/Smart",
-                                isSelected = selectedBoxType == "Smart TV",
+                                label = "Chromecast/DIAL",
+                                isSelected = selectedBoxType == "Chromecast",
                                 onClick = {
-                                    selectedBoxType = "Smart TV"
-                                    port = 8080
+                                    selectedBoxType = "Chromecast"
+                                    port = 8008
                                     protocol = TvProtocol.UNIVERSAL_REST
-                                }
-                            )
-                            BoxTypeChip(
-                                label = "Roku Box",
-                                isSelected = selectedBoxType == "Roku Box",
-                                onClick = {
-                                    selectedBoxType = "Roku Box"
-                                    port = 8060
-                                    protocol = TvProtocol.ROKU_ECP
                                 }
                             )
                         }

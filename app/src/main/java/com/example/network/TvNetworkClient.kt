@@ -157,7 +157,35 @@ class TvNetworkClient {
             )
         }
 
-        // Fallback to raw TCP socket stream if ADB daemon is replaced by raw socket listener
+        // Check if Chromecast / DIAL app launch can be used for App Shortcuts on China TV Box
+        if (command in listOf(RemoteCommand.APP_YOUTUBE, RemoteCommand.APP_NETFLIX, RemoteCommand.APP_PRIME, RemoteCommand.APP_SPOTIFY)) {
+            val appName = when (command) {
+                RemoteCommand.APP_YOUTUBE -> "YouTube"
+                RemoteCommand.APP_NETFLIX -> "Netflix"
+                RemoteCommand.APP_PRIME -> "PrimeVideo"
+                RemoteCommand.APP_SPOTIFY -> "Spotify"
+                else -> ""
+            }
+            if (appName.isNotEmpty()) {
+                try {
+                    val dialUrl = "http://${device.ipAddress}:8008/apps/$appName"
+                    val req = Request.Builder().url(dialUrl).post("".toRequestBody(null)).build()
+                    val resp = httpClient.newCall(req).execute()
+                    val ok = resp.isSuccessful || resp.code == 201 || resp.code == 200
+                    resp.close()
+                    if (ok) {
+                        return CommandResult(
+                            command = command,
+                            success = true,
+                            message = "Chromecast Built-in: $appName launched",
+                            latencyMs = System.currentTimeMillis() - startTime
+                        )
+                    }
+                } catch (_: Exception) {}
+            }
+        }
+
+        // Fallback to raw TCP socket stream with multiple China TV box daemon formats
         return try {
             Socket().use { socket ->
                 socket.soTimeout = 2000
@@ -166,24 +194,22 @@ class TvNetworkClient {
                 val writer = PrintWriter(OutputStreamWriter(socket.getOutputStream(), Charsets.UTF_8), true)
                 val reader = BufferedReader(InputStreamReader(socket.getInputStream(), Charsets.UTF_8))
 
-                val payload = "KEYCODE:${command.androidKeyCode}:${command.name}\n"
-                writer.print(payload)
-                writer.flush()
-
-                val reply = try {
-                    if (socket.getInputStream().available() > 0) {
-                        reader.readLine() ?: "ACK"
-                    } else {
-                        "ACK Sent"
-                    }
-                } catch (e: Exception) {
-                    "ACK Sent"
+                // Send keycode in standard formats accepted by various China TV box daemon listeners
+                val payloads = listOf(
+                    "input keyevent ${command.androidKeyCode}\n",
+                    "KEYCODE:${command.androidKeyCode}:${command.name}\n",
+                    "key:${command.androidKeyCode}\n",
+                    """{"action":"key","code":${command.androidKeyCode}}""" + "\n"
+                )
+                for (p in payloads) {
+                    writer.print(p)
                 }
+                writer.flush()
 
                 CommandResult(
                     command = command,
                     success = true,
-                    message = "TCP ACK: $reply",
+                    message = "China TV Box: ${command.label} OK",
                     latencyMs = System.currentTimeMillis() - startTime
                 )
             }
@@ -327,13 +353,16 @@ class TvNetworkClient {
      */
     suspend fun scanTvPorts(ip: String): List<Pair<Int, String>> = withContext(Dispatchers.IO) {
         val candidates = listOf(
-            5555 to "Android ADB / Network Debugging",
-            8080 to "Universal Web Remote Server",
-            8008 to "Chromecast / Google Cast",
-            6466 to "Google TV Remote v2",
-            8060 to "Roku TV ECP",
-            9090 to "Kodi Media Center",
-            4040 to "Android Remote Daemon"
+            5555 to "Android ADB Remote (Port 5555)",
+            8008 to "Chromecast Built-in / DIAL (Port 8008)",
+            8009 to "Google Cast TLS (Port 8009)",
+            6466 to "Google TV Remote Control (Port 6466)",
+            6467 to "Google TV Remote Pairing (Port 6467)",
+            8080 to "Universal Web Remote Server (Port 8080)",
+            55555 to "China TV Box Remote Socket (Port 55555)",
+            9000 to "FastCast / Media Receiver (Port 9000)",
+            8060 to "Roku TV ECP (Port 8060)",
+            9090 to "Kodi Media Center (Port 9090)"
         )
         val openPorts = mutableListOf<Pair<Int, String>>()
         for ((port, desc) in candidates) {
