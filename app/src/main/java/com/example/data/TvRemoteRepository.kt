@@ -43,6 +43,12 @@ class TvRemoteRepository(
     private val _isBluetoothMode = MutableStateFlow(false)
     val isBluetoothMode: StateFlow<Boolean> = _isBluetoothMode.asStateFlow()
 
+    private val _pairingRequiredIp = MutableStateFlow<String?>(null)
+    val pairingRequiredIp: StateFlow<String?> = _pairingRequiredIp.asStateFlow()
+
+    private val _pairingMessage = MutableStateFlow<String?>(null)
+    val pairingMessage: StateFlow<String?> = _pairingMessage.asStateFlow()
+
     private val _connectedDevice = MutableStateFlow<TvDevice?>(null)
     val connectedDevice: StateFlow<TvDevice?> = _connectedDevice.asStateFlow()
 
@@ -73,6 +79,8 @@ class TvRemoteRepository(
     }
 
     init {
+        com.example.network.AdbTvClient.init(context)
+        com.example.network.AndroidTvRemoteV2Client.init(context)
         loadSavedDevices()
 
         // Sync connection state with Bluetooth HID profile when in Bluetooth mode
@@ -150,9 +158,9 @@ class TvRemoteRepository(
         } else {
             val wifiDevice = _savedDevices.value.firstOrNull { it.protocol != TvProtocol.BLUETOOTH_HID }
                 ?: TvDevice(
-                    id = "192.168.0.100:5555",
-                    name = "Android TV Box",
-                    ipAddress = "192.168.0.100",
+                    id = "192.168.0.106:5555",
+                    name = "TX500PRO TV Box",
+                    ipAddress = "192.168.0.106",
                     port = 5555,
                     protocol = TvProtocol.ANDROID_TV_TCP,
                     isSaved = true
@@ -256,54 +264,139 @@ class TvRemoteRepository(
         return networkClient.pingDevice(ip, port)
     }
 
-    suspend fun autoDetectAndConnect(ip: String): Pair<Boolean, String> {
-        val targetIp = ip.trim()
-        if (targetIp.isBlank()) return Pair(false, "IP ঠিকানা প্রদান করুন")
+    suspend fun startGoogleTvPairing(ip: String): Pair<Boolean, String> {
+        val res = com.example.network.AndroidTvRemoteV2Client.startPairing(ip)
+        if (res.first) {
+            _pairingRequiredIp.value = ip
+            _pairingMessage.value = res.second
+        } else {
+            _pairingMessage.value = res.second
+        }
+        return res
+    }
 
-        // 1. Test Port 5555 (ADB)
-        val adbTest = com.example.network.AdbTvClient.testAdbConnection(targetIp, 5555)
-        if (adbTest.first) {
+    suspend fun submitGoogleTvPin(ip: String, code: String): Pair<Boolean, String> {
+        val res = com.example.network.AndroidTvRemoteV2Client.completePairing(ip, code)
+        if (res.first) {
+            _pairingRequiredIp.value = null
+            _pairingMessage.value = null
             val dev = TvDevice(
-                id = "$targetIp:5555",
-                name = "China Android TV Box",
-                ipAddress = targetIp,
-                port = 5555,
-                protocol = TvProtocol.ANDROID_TV_TCP,
+                id = "$ip:6466",
+                name = "Google / Android TV ($ip)",
+                ipAddress = ip,
+                port = 6466,
+                protocol = TvProtocol.ANDROID_TV_REMOTE_V2,
                 isSaved = true
             )
             connectToDevice(dev)
-            val msg = if (adbTest.second == com.example.network.AdbAuthStatus.WAITING_FOR_USER_AUTH) {
-                "সফল! পোর্ট ৫৫৫৫ সক্রিয়। টিভি স্ক্রিনে 'Allow USB Debugging' ডায়ালগে OK চাপুন।"
-            } else {
-                "সফল! চায়না টিভি বক্স কানেক্টেড (Port 5555 ADB Active)"
-            }
-            return Pair(true, msg)
+        } else {
+            _pairingMessage.value = res.second
+        }
+        return res
+    }
+
+    fun cancelGoogleTvPairing() {
+        com.example.network.AndroidTvRemoteV2Client.cancelPairing()
+        _pairingRequiredIp.value = null
+        _pairingMessage.value = null
+    }
+
+    suspend fun autoDetectAndConnect(ip: String): Pair<Boolean, String> {
+        val candidateIps = linkedSetOf<String>()
+        if (ip.isNotBlank() && ip != "127.0.0.1" && ip != "Bluetooth HID") {
+            candidateIps.add(ip.trim())
+        }
+        candidateIps.add("192.168.0.106")
+        candidateIps.add("192.168.0.100")
+
+        // 1. Fast check on known candidate IPs first (ADB 5555, Google TV 6466/6467, China ports)
+        for (targetIp in candidateIps) {
+            val found = probeAndConnectSingleIp(targetIp)
+            if (found != null) return found
         }
 
-        // 2. Scan all known Android TV / China TV Box ports in parallel
-        val openPorts = networkClient.scanTvPorts(targetIp)
-        if (openPorts.isNotEmpty()) {
-            val (foundPort, serviceName) = openPorts.first()
-            val proto = when (foundPort) {
-                8008, 8080 -> TvProtocol.UNIVERSAL_REST
-                else -> TvProtocol.ANDROID_TV_TCP
-            }
-            val autoDev = TvDevice(
-                id = "$targetIp:$foundPort",
-                name = "China TV Box ($serviceName)",
-                ipAddress = targetIp,
-                port = foundPort,
-                protocol = proto,
-                isSaved = true
-            )
-            connectToDevice(autoDev)
-            return Pair(true, "সফল! $serviceName পাওয়া গেছে (Port $foundPort অটো-কানেক্টেড)।")
+        // 2. Full Wi-Fi subnet sweep (1..254) in parallel (~2s) to find any TV box whose DHCP IP changed!
+        val subnetDevices = discoveryManager.scanSubnetNow()
+        val firstTv = subnetDevices.firstOrNull { !it.isVirtual }
+        if (firstTv != null) {
+            val found = probeAndConnectSingleIp(firstTv.ipAddress)
+            if (found != null) return found
+
+            connectToDevice(firstTv)
+            return Pair(true, "সফল! ${firstTv.name} পাওয়া গেছে (${firstTv.ipAddress}:${firstTv.port})।")
         }
 
         return Pair(
             false,
-            "Wi-Fi পোর্ট বন্ধ পাওয়া গেছে। সমাধান: উপরের 'ᛒ ব্লুটুথ রিমোট' ট্যাবে চাপ দিয়ে টিভিতে পেয়ার করুন (১০০% কাজ করবে) অথবা টিভিতে Developer Options এ গিয়ে USB Debugging অন করে টিভি রিস্টার্ট দিন।"
+            "Wi-Fi তে কোনো খোলা রিমোট পোর্ট পাওয়া যায়নি। সমাধান:\n১) টিভির Settings ➔ About ➔ Build এ ৭ বার ক্লিক করে Developer Options ➔ USB Debugging অন করুন এবং টিভি রিস্টার্ট দিন।\n২) অথবা উপরের 'ᛒ ব্লুটুথ রিমোট' ট্যাবে টিভি বক্স পেয়ার করুন।"
         )
+    }
+
+    private suspend fun probeAndConnectSingleIp(targetIp: String): Pair<Boolean, String>? {
+        // Check Google TV / Android TV Remote v2 (Ports 6466/6467)
+        val openPorts = networkClient.scanTvPorts(targetIp)
+        if (openPorts.isEmpty()) return null
+
+        val hasGoogleTvRemote = openPorts.any { it.first == 6466 || it.first == 6467 }
+        val hasAdb = openPorts.any { it.first == 5555 }
+
+        if (hasAdb) {
+            val adbTest = com.example.network.AdbTvClient.testAdbConnection(targetIp, 5555)
+            if (adbTest.first) {
+                val dev = TvDevice(
+                    id = "$targetIp:5555",
+                    name = "Android / China TV Box ($targetIp)",
+                    ipAddress = targetIp,
+                    port = 5555,
+                    protocol = TvProtocol.ANDROID_TV_TCP,
+                    isSaved = true
+                )
+                connectToDevice(dev)
+                val msg = if (adbTest.second == com.example.network.AdbAuthStatus.WAITING_FOR_USER_AUTH) {
+                    "পাওয়া গেছে ($targetIp:5555)! টিভি স্ক্রিনে 'Allow USB Debugging' ডায়ালগে Always allow টিক দিয়ে OK চাপুন।"
+                } else {
+                    "সফল! টিভি বক্স কানেক্টেড ($targetIp • ADB Port 5555)"
+                }
+                return Pair(true, msg)
+            }
+        }
+
+        if (hasGoogleTvRemote) {
+            val v2Status = com.example.network.AndroidTvRemoteV2Client.testConnection(targetIp)
+            val dev = TvDevice(
+                id = "$targetIp:6466",
+                name = "Google / Android TV ($targetIp)",
+                ipAddress = targetIp,
+                port = 6466,
+                protocol = TvProtocol.ANDROID_TV_REMOTE_V2,
+                isSaved = true
+            )
+            connectToDevice(dev)
+            if (v2Status.first == com.example.network.AtvV2Status.CONNECTED) {
+                return Pair(true, "সফল! Google / Android TV কানেক্টেড ($targetIp:6466)")
+            } else if (v2Status.first == com.example.network.AtvV2Status.NEEDS_PAIRING) {
+                startGoogleTvPairing(targetIp)
+                return Pair(true, "টিভি পাওয়া গেছে ($targetIp)! স্ক্রিনে আসা ৬ অক্ষরের পিন কোড দিন।")
+            }
+        }
+
+        // Other open port (8008 Chromecast, 8060 Roku, 8080 REST, 55555 China socket)
+        val (foundPort, serviceName) = openPorts.first()
+        val proto = when (foundPort) {
+            8060 -> TvProtocol.ROKU_ECP
+            8008, 8080 -> TvProtocol.UNIVERSAL_REST
+            else -> TvProtocol.ANDROID_TV_TCP
+        }
+        val autoDev = TvDevice(
+            id = "$targetIp:$foundPort",
+            name = "TV Box ($targetIp)",
+            ipAddress = targetIp,
+            port = foundPort,
+            protocol = proto,
+            isSaved = true
+        )
+        connectToDevice(autoDev)
+        return Pair(true, "সফল! $serviceName পাওয়া গেছে ($targetIp:$foundPort)।")
     }
 
     suspend fun diagnoseTvConnection(ip: String, port: Int): String {
@@ -446,11 +539,11 @@ class TvRemoteRepository(
         try {
             val raw = prefs.getString("saved_tv_devices", null)
             if (raw == null) {
-                // Prepopulate the user's Android TV Box
+                // Prepopulate the user's Android TV Box (TX500PRO at 192.168.0.106)
                 val defaultTvBox = TvDevice(
-                    id = "192.168.0.100:5555",
-                    name = "Android TV Box",
-                    ipAddress = "192.168.0.100",
+                    id = "192.168.0.106:5555",
+                    name = "TX500PRO TV Box",
+                    ipAddress = "192.168.0.106",
                     port = 5555,
                     protocol = TvProtocol.ANDROID_TV_TCP,
                     isSaved = true
@@ -469,17 +562,15 @@ class TvRemoteRepository(
                 } catch (_: Exception) {
                     TvProtocol.ANDROID_TV_TCP
                 }
-                // Automatic migration for TV Box: force port 5555 for ADB
-                if (ip == "192.168.0.100" || protocol == TvProtocol.ANDROID_TV_TCP) {
+                if ((ip == "192.168.0.100" || ip == "192.168.0.106") && protocol == TvProtocol.ANDROID_TV_TCP) {
                     if (port == 8080 || port == 8060 || port == 0) {
                         port = 5555
                     }
-                    protocol = TvProtocol.ANDROID_TV_TCP
                 }
                 list.add(
                     TvDevice(
                         id = "$ip:$port",
-                        name = if (ip == "192.168.0.100") "Android TV Box" else obj.optString("name", "Saved TV"),
+                        name = obj.optString("name", "Android TV Box"),
                         ipAddress = ip,
                         port = port,
                         protocol = protocol,
@@ -490,9 +581,9 @@ class TvRemoteRepository(
             }
             if (list.isEmpty()) {
                 val defaultTvBox = TvDevice(
-                    id = "192.168.0.100:5555",
-                    name = "Android TV Box",
-                    ipAddress = "192.168.0.100",
+                    id = "192.168.0.106:5555",
+                    name = "TX500PRO TV Box",
+                    ipAddress = "192.168.0.106",
                     port = 5555,
                     protocol = TvProtocol.ANDROID_TV_TCP,
                     isSaved = true

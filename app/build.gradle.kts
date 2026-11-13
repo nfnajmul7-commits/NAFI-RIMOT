@@ -97,7 +97,7 @@ dependencies {
   implementation(libs.androidx.lifecycle.viewmodel.compose)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
-  implementation(libs.okhttp)
+  // implementation(libs.okhttp) // Replaced with built-in HttpURLConnection to reduce APK size
 
   // Unused libraries commented out for APK size minimization:
   // implementation(platform(libs.firebase.bom))

@@ -50,17 +50,61 @@ object AdbTvClient {
     private const val ADB_AUTH_SIGNATURE = 2
     private const val ADB_AUTH_RSAPUBLICKEY = 3
 
+    private const val PREF_NAME = "adb_rsa_keystore_prefs"
+    private const val KEY_PRIV = "adb_rsa_priv_pkcs8"
+    private const val KEY_PUB = "adb_rsa_pub_x509"
+
     // Cached RSA keypair for ADB authorization across app sessions
     private var cachedKeyPair: KeyPair? = null
+    private var appContext: android.content.Context? = null
+
+    fun init(context: android.content.Context) {
+        appContext = context.applicationContext
+    }
 
     @Synchronized
     private fun getOrCreateRsaKeyPair(): KeyPair {
         cachedKeyPair?.let { return it }
+
+        // Try loading persisted keypair from SharedPreferences
+        appContext?.let { ctx ->
+            try {
+                val prefs = ctx.getSharedPreferences(PREF_NAME, android.content.Context.MODE_PRIVATE)
+                val privB64 = prefs.getString(KEY_PRIV, null)
+                val pubB64 = prefs.getString(KEY_PUB, null)
+                if (!privB64.isNullOrBlank() && !pubB64.isNullOrBlank()) {
+                    val kf = java.security.KeyFactory.getInstance("RSA")
+                    val privKey = kf.generatePrivate(
+                        java.security.spec.PKCS8EncodedKeySpec(Base64.decode(privB64, Base64.DEFAULT))
+                    )
+                    val pubKey = kf.generatePublic(
+                        java.security.spec.X509EncodedKeySpec(Base64.decode(pubB64, Base64.DEFAULT))
+                    )
+                    val loaded = KeyPair(pubKey, privKey)
+                    cachedKeyPair = loaded
+                    return loaded
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not load persisted RSA key: ${e.message}")
+            }
+        }
+
         return try {
             val kpg = KeyPairGenerator.getInstance("RSA")
             kpg.initialize(2048)
             val kp = kpg.generateKeyPair()
             cachedKeyPair = kp
+
+            // Save generated keypair for future app launches
+            appContext?.let { ctx ->
+                try {
+                    val prefs = ctx.getSharedPreferences(PREF_NAME, android.content.Context.MODE_PRIVATE)
+                    prefs.edit()
+                        .putString(KEY_PRIV, Base64.encodeToString(kp.private.encoded, Base64.NO_WRAP))
+                        .putString(KEY_PUB, Base64.encodeToString(kp.public.encoded, Base64.NO_WRAP))
+                        .apply()
+                } catch (_: Exception) {}
+            }
             kp
         } catch (e: Exception) {
             Log.e(TAG, "Failed to generate RSA key: ${e.message}")

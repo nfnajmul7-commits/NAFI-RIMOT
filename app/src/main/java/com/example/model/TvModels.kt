@@ -9,10 +9,15 @@ enum class TvProtocol(val displayName: String, val defaultPort: Int, val descrip
         defaultPort = 8060,
         description = "Standard Roku External Control Protocol over HTTP POST"
     ),
+    ANDROID_TV_REMOTE_V2(
+        displayName = "Google / Android TV Remote",
+        defaultPort = 6466,
+        description = "Native Android TV & Google TV TLS Remote Protocol v2 (Ports 6466/6467)"
+    ),
     ANDROID_TV_TCP(
-        displayName = "Android / Google TV (TCP)",
+        displayName = "Android / China TV Box (ADB)",
         defaultPort = 5555,
-        description = "Direct TCP socket keycode transmission (e.g. ADB/TCP bridge)"
+        description = "Direct ADB/TCP socket keycode transmission for China TV Boxes & Android TV"
     ),
     UNIVERSAL_REST(
         displayName = "Universal REST API",

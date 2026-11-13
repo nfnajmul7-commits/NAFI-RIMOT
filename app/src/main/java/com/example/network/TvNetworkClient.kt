@@ -7,30 +7,50 @@ import com.example.model.TvDevice
 import com.example.model.TvProtocol
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.io.PrintWriter
+import java.net.HttpURLConnection
 import java.net.InetSocketAddress
 import java.net.Socket
-import java.util.concurrent.TimeUnit
+import java.net.URL
 
 class TvNetworkClient {
 
-    private val httpClient: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(2500, TimeUnit.MILLISECONDS)
-        .readTimeout(2500, TimeUnit.MILLISECONDS)
-        .writeTimeout(2500, TimeUnit.MILLISECONDS)
-        .retryOnConnectionFailure(false)
-        .build()
-
     companion object {
         private const val TAG = "TvNetworkClient"
-        private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
+        private const val HTTP_TIMEOUT_MS = 2500
+    }
+
+    private fun postHttp(urlString: String, jsonBody: String? = null): Pair<Int, String> {
+        val url = URL(urlString)
+        val conn = (url.openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = HTTP_TIMEOUT_MS
+            readTimeout = HTTP_TIMEOUT_MS
+            doOutput = true
+            useCaches = false
+            if (jsonBody != null) {
+                setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            } else {
+                setFixedLengthStreamingMode(0)
+            }
+        }
+        return try {
+            if (jsonBody != null) {
+                val bytes = jsonBody.toByteArray(Charsets.UTF_8)
+                conn.setFixedLengthStreamingMode(bytes.size)
+                conn.outputStream.use { it.write(bytes) }
+            } else {
+                conn.outputStream.close()
+            }
+            val code = conn.responseCode
+            val msg = conn.responseMessage ?: ""
+            code to msg
+        } finally {
+            conn.disconnect()
+        }
     }
 
     /**
@@ -42,6 +62,7 @@ class TvNetworkClient {
             try {
                 when (device.protocol) {
                     TvProtocol.ROKU_ECP -> sendRokuCommand(device, command, startTime)
+                    TvProtocol.ANDROID_TV_REMOTE_V2 -> sendAndroidTvRemoteV2Command(device, command, startTime)
                     TvProtocol.ANDROID_TV_TCP -> sendAndroidTvAdbCommand(device, command, startTime)
                     TvProtocol.UNIVERSAL_REST -> sendRestCommand(device, command, startTime)
                     TvProtocol.BLUETOOTH_HID -> {
@@ -88,30 +109,65 @@ class TvNetworkClient {
             "http://${device.ipAddress}:${device.port}/keypress/${command.rokuKey}"
         }
 
-        val emptyBody = "".toRequestBody(null)
-        val request = Request.Builder()
-            .url(endpoint)
-            .post(emptyBody)
-            .build()
+        val (code, message) = postHttp(endpoint)
+        val latency = System.currentTimeMillis() - startTime
+        return if (code in 200..299) {
+            CommandResult(
+                command = command,
+                success = true,
+                message = "HTTP $code OK",
+                latencyMs = latency
+            )
+        } else {
+            CommandResult(
+                command = command,
+                success = false,
+                message = "HTTP $code $message",
+                latencyMs = latency
+            )
+        }
+    }
 
-        httpClient.newCall(request).execute().use { response ->
-            val latency = System.currentTimeMillis() - startTime
-            return if (response.isSuccessful) {
-                CommandResult(
-                    command = command,
-                    success = true,
-                    message = "HTTP ${response.code} OK",
-                    latencyMs = latency
-                )
-            } else {
-                CommandResult(
-                    command = command,
-                    success = false,
-                    message = "HTTP ${response.code} ${response.message}",
-                    latencyMs = latency
-                )
+    /**
+     * Native Google TV / Android TV Remote Protocol v2 (Port 6466)
+     */
+    private suspend fun sendAndroidTvRemoteV2Command(
+        device: TvDevice,
+        command: RemoteCommand,
+        startTime: Long
+    ): CommandResult {
+        if (command.name.startsWith("APP_")) {
+            val appName = when (command) {
+                RemoteCommand.APP_YOUTUBE -> "YouTube"
+                RemoteCommand.APP_NETFLIX -> "Netflix"
+                RemoteCommand.APP_PRIME -> "PrimeVideo"
+                RemoteCommand.APP_SPOTIFY -> "Spotify"
+                else -> ""
+            }
+            if (appName.isNotEmpty()) {
+                try {
+                    val dialUrl = "http://${device.ipAddress}:8008/apps/$appName"
+                    val (code, _) = postHttp(dialUrl)
+                    if (code in 200..299) {
+                        return CommandResult(
+                            command = command,
+                            success = true,
+                            message = "Launched $appName",
+                            latencyMs = System.currentTimeMillis() - startTime
+                        )
+                    }
+                } catch (_: Exception) {}
             }
         }
+
+        val keyCode = if (command.androidKeyCode > 0) command.androidKeyCode else 23
+        val result = AndroidTvRemoteV2Client.sendKeycode(device.ipAddress, keyCode)
+        return CommandResult(
+            command = command,
+            success = result.first,
+            message = result.second,
+            latencyMs = System.currentTimeMillis() - startTime
+        )
     }
 
     /**
@@ -169,11 +225,8 @@ class TvNetworkClient {
             if (appName.isNotEmpty()) {
                 try {
                     val dialUrl = "http://${device.ipAddress}:8008/apps/$appName"
-                    val req = Request.Builder().url(dialUrl).post("".toRequestBody(null)).build()
-                    val resp = httpClient.newCall(req).execute()
-                    val ok = resp.isSuccessful || resp.code == 201 || resp.code == 200
-                    resp.close()
-                    if (ok) {
+                    val (code, _) = postHttp(dialUrl)
+                    if (code in 200..299) {
                         return CommandResult(
                             command = command,
                             success = true,
@@ -240,21 +293,14 @@ class TvNetworkClient {
             }
         """.trimIndent()
 
-        val requestBody = jsonPayload.toRequestBody(JSON_MEDIA_TYPE)
-        val request = Request.Builder()
-            .url(endpoint)
-            .post(requestBody)
-            .build()
-
-        httpClient.newCall(request).execute().use { response ->
-            val latency = System.currentTimeMillis() - startTime
-            return CommandResult(
-                command = command,
-                success = response.isSuccessful,
-                message = "HTTP ${response.code} ${response.message}",
-                latencyMs = latency
-            )
-        }
+        val (code, message) = postHttp(endpoint, jsonPayload)
+        val latency = System.currentTimeMillis() - startTime
+        return CommandResult(
+            command = command,
+            success = code in 200..299,
+            message = "HTTP $code $message",
+            latencyMs = latency
+        )
     }
 
     /**
@@ -268,13 +314,21 @@ class TvNetworkClient {
                     for (ch in text) {
                         val encoded = if (ch == ' ') "%20" else java.net.URLEncoder.encode(ch.toString(), "UTF-8")
                         val endpoint = "http://${device.ipAddress}:${device.port}/keypress/Lit_$encoded"
-                        val req = Request.Builder().url(endpoint).post("".toRequestBody(null)).build()
-                        httpClient.newCall(req).execute().close()
+                        postHttp(endpoint)
                     }
                     CommandResult(
                         command = RemoteCommand.OK,
                         success = true,
                         message = "Typed \"$text\"",
+                        latencyMs = System.currentTimeMillis() - startTime
+                    )
+                }
+                TvProtocol.ANDROID_TV_REMOTE_V2 -> {
+                    val res = AndroidTvRemoteV2Client.sendText(device.ipAddress, text)
+                    CommandResult(
+                        command = RemoteCommand.OK,
+                        success = res.first,
+                        message = res.second,
                         latencyMs = System.currentTimeMillis() - startTime
                     )
                 }
@@ -290,8 +344,7 @@ class TvNetworkClient {
                 TvProtocol.UNIVERSAL_REST -> {
                     val endpoint = "http://${device.ipAddress}:${device.port}/api/type"
                     val payload = """{"command":"TYPE_TEXT","text":"$text"}"""
-                    val req = Request.Builder().url(endpoint).post(payload.toRequestBody(JSON_MEDIA_TYPE)).build()
-                    httpClient.newCall(req).execute().close()
+                    postHttp(endpoint, payload)
                     CommandResult(
                         command = RemoteCommand.OK,
                         success = true,

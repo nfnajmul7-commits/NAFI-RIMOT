@@ -1,6 +1,8 @@
 package com.example.ui
 
 import android.Manifest
+import android.bluetooth.BluetoothAdapter
+import android.content.Intent
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -9,6 +11,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,17 +34,22 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,6 +59,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -99,15 +108,45 @@ fun TvRemoteScreen(
     val isBluetoothMode by viewModel.isBluetoothMode.collectAsState()
     val bluetoothStatus by viewModel.bluetoothStatus.collectAsState()
     val bluetoothDeviceName by viewModel.bluetoothDeviceName.collectAsState()
+    val pairingRequiredIp by viewModel.pairingRequiredIp.collectAsState()
+    val pairingMessage by viewModel.pairingMessage.collectAsState()
+
+    val context = LocalContext.current
+    var bondedBtDevices by remember { mutableStateOf(emptyList<android.bluetooth.BluetoothDevice>()) }
+
+    val btEnableLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        viewModel.initBluetoothProfile()
+        viewModel.makePhoneDiscoverable()
+        bondedBtDevices = viewModel.getAllBondedDevices()
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         val allGranted = permissions.values.all { it }
         if (allGranted) {
-            viewModel.initBluetoothProfile()
-            viewModel.makePhoneDiscoverable()
-            viewModel.connectBluetoothTv("b4:04:18:97:7b:c3")
+            if (bluetoothStatus == com.example.bluetooth.BluetoothStatus.DISABLED) {
+                try {
+                    btEnableLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+                } catch (_: Exception) {}
+            } else {
+                viewModel.initBluetoothProfile()
+                viewModel.makePhoneDiscoverable()
+                viewModel.connectBluetoothTv("b4:04:18:97:7b:c3")
+                bondedBtDevices = viewModel.getAllBondedDevices()
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.autoDetectAndConnect(connectedDevice?.ipAddress ?: "192.168.0.106")
+    }
+
+    LaunchedEffect(isBluetoothMode, bluetoothStatus) {
+        if (isBluetoothMode) {
+            bondedBtDevices = viewModel.getAllBondedDevices()
         }
     }
 
@@ -131,20 +170,19 @@ fun TvRemoteScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .widthIn(max = 500.dp)
-                    .verticalScroll(scrollState),
+                    .widthIn(max = 500.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // 1. Top Bar: [ ← Device Name ] [ ● Status ]   [ Power (Red) ]
+                // 1. Pinned Top Bar: [ ← Device Name ] [ ● Status ]   [ Power (Red) ]
                 ExactTopBar(
                     deviceName = if (isBluetoothMode) (bluetoothDeviceName ?: "Android TV Box (Bluetooth)") else (connectedDevice?.name ?: "Android TV Box"),
                     isConnected = if (isBluetoothMode) (bluetoothStatus == com.example.bluetooth.BluetoothStatus.CONNECTED) else (connectionStatus == ConnectionStatus.CONNECTED && connectedDevice?.isVirtual == false),
-                    statusText = if (isBluetoothMode) "Bluetooth HID" else if (connectedDevice?.isVirtual == true) "Virtual Demo" else (connectedDevice?.ipAddress ?: "192.168.0.100"),
+                    statusText = if (isBluetoothMode) "Bluetooth HID" else if (connectedDevice?.isVirtual == true) "Virtual Demo" else (connectedDevice?.ipAddress ?: "192.168.0.106"),
                     onBackOrDeviceClick = { viewModel.showDiscoverySheet(true) },
                     onPowerClick = { viewModel.sendCommand(RemoteCommand.POWER) }
                 )
 
-                // 2. Dual-Mode Connection Selector Card: [ ᛒ ব্লুটুথ রিমোট (TV Box) ]  [ 📶 Wi-Fi ADB ]
+                // 2. Pinned Dual-Mode Connection Selector Card: [ 📶 Wi-Fi (সকল TV/বক্স) ]  [ ᛒ ব্লুটুথ রিমোট ]
                 Surface(
                     shape = RoundedCornerShape(14.dp),
                     color = Color(0xFF141C2B),
@@ -158,12 +196,12 @@ fun TvRemoteScreen(
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 3.dp)
+                        .padding(horizontal = 16.dp, vertical = 2.dp)
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(10.dp)
+                            .padding(8.dp)
                     ) {
                         // Switcher pills
                         Row(
@@ -174,6 +212,24 @@ fun TvRemoteScreen(
                                 .padding(3.dp),
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
+                            // Wi-Fi Mode Pill
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(if (!isBluetoothMode) AccentCyan else Color.Transparent)
+                                    .clickable { viewModel.setBluetoothMode(false) }
+                                    .padding(vertical = 6.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "📶 Wi-Fi (সকল TV/বক্স)",
+                                    color = if (!isBluetoothMode) Color.Black else TextSecondary,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
                             // Bluetooth Mode Pill
                             Box(
                                 modifier = Modifier
@@ -191,27 +247,9 @@ fun TvRemoteScreen(
                                     fontWeight = FontWeight.Bold
                                 )
                             }
-
-                            // Wi-Fi Mode Pill
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(if (!isBluetoothMode) AccentCyan else Color.Transparent)
-                                    .clickable { viewModel.setBluetoothMode(false) }
-                                    .padding(vertical = 6.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "📶 Wi-Fi ADB (৫৫৫৫)",
-                                    color = if (!isBluetoothMode) Color.Black else TextSecondary,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
 
                         if (isBluetoothMode) {
                             // BLUETOOTH VIEW
@@ -244,6 +282,7 @@ fun TvRemoteScreen(
                                                 com.example.bluetooth.BluetoothStatus.CONNECTED -> "টিভিতে সংযুক্ত: ${bluetoothDeviceName ?: "Android TV"}"
                                                 com.example.bluetooth.BluetoothStatus.CONNECTING -> "সংযোগ হচ্ছে..."
                                                 com.example.bluetooth.BluetoothStatus.REGISTERING -> "প্রোফাইল প্রস্তুত হচ্ছে..."
+                                                com.example.bluetooth.BluetoothStatus.DISABLED -> "ফোনের ব্লুটুথ বন্ধ আছে (অন করুন)"
                                                 else -> "ব্লুটুথ প্রস্তুত (টিভি বক্সে পেয়ার করুন)"
                                             },
                                             color = Color.White,
@@ -271,8 +310,15 @@ fun TvRemoteScreen(
                                                 )
                                             )
                                         } else {
-                                            viewModel.makePhoneDiscoverable()
-                                            viewModel.connectBluetoothTv("b4:04:18:97:7b:c3")
+                                            if (bluetoothStatus == com.example.bluetooth.BluetoothStatus.DISABLED) {
+                                                try {
+                                                    btEnableLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+                                                } catch (_: Exception) {}
+                                            } else {
+                                                viewModel.initBluetoothProfile()
+                                                viewModel.makePhoneDiscoverable()
+                                                viewModel.connectBluetoothTv("b4:04:18:97:7b:c3")
+                                            }
                                         }
                                     },
                                     colors = ButtonDefaults.buttonColors(
@@ -281,7 +327,7 @@ fun TvRemoteScreen(
                                     ),
                                     shape = RoundedCornerShape(8.dp),
                                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                    modifier = Modifier.height(32.dp)
+                                    modifier = Modifier.height(30.dp)
                                 ) {
                                     Text(
                                         text = if (bluetoothStatus == com.example.bluetooth.BluetoothStatus.CONNECTED) "সংযুক্ত" else "ᛒ পেয়ার করুন",
@@ -291,14 +337,44 @@ fun TvRemoteScreen(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(6.dp))
+                            if (bondedBtDevices.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    bondedBtDevices.forEach { btDev ->
+                                        val label = try { btDev.name ?: btDev.address } catch (_: SecurityException) { btDev.address }
+                                        val addr = try { btDev.address } catch (_: SecurityException) { "" }
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = Color(0xFF00384D),
+                                            modifier = Modifier.clickable {
+                                                if (addr.isNotBlank()) viewModel.connectBluetoothTv(addr)
+                                            }
+                                        ) {
+                                            Text(
+                                                text = "🔗 $label",
+                                                color = AccentCyan,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(5.dp))
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
                                 color = Color(0xFF0B1422),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
-                                    text = "👉 টিভির Remotes & Accessories মেনুতে \"Add accessory\" চাপুন। ফোনের ডিসকভার আসলে Allow দিন।",
+                                    text = "👉 টিভির Remotes & Accessories ➔ Add accessory চাপুন এবং ফোনের নাম সিলেক্ট করে Pair দিন।",
                                     color = AccentCyan.copy(alpha = 0.9f),
                                     fontSize = 10.sp,
                                     modifier = Modifier.padding(6.dp)
@@ -329,7 +405,7 @@ fun TvRemoteScreen(
                                     )
                                     Column {
                                         Text(
-                                            text = connectedDevice?.let { "${it.name} (${it.ipAddress})" } ?: "Android TV (192.168.0.100)",
+                                            text = connectedDevice?.let { "${it.name} (${it.ipAddress})" } ?: "TX500PRO (192.168.0.106)",
                                             color = Color.White,
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Bold,
@@ -337,15 +413,14 @@ fun TvRemoteScreen(
                                             overflow = TextOverflow.Ellipsis
                                         )
                                         Text(
-                                            text = if (connectionStatus == ConnectionStatus.CONNECTED && connectedDevice?.isVirtual == false)
-                                                "ADB Port ${connectedDevice?.port ?: 5555} • সংযুক্ত"
-                                            else
-                                                "ADB Port 5555 • টেস্ট বাটন চাপুন",
+                                            text = "${connectedDevice?.protocol?.displayName ?: "Android TV"} • Port ${connectedDevice?.port ?: 5555}",
                                             color = if (connectionStatus == ConnectionStatus.CONNECTED && connectedDevice?.isVirtual == false)
                                                 StatusGreen
                                             else
                                                 AccentCyan,
-                                            fontSize = 10.sp
+                                            fontSize = 10.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                 }
@@ -356,7 +431,7 @@ fun TvRemoteScreen(
                                 ) {
                                     Button(
                                         onClick = {
-                                            val ip = connectedDevice?.ipAddress ?: "192.168.0.100"
+                                            val ip = connectedDevice?.ipAddress ?: "192.168.0.106"
                                             viewModel.autoDetectAndConnect(ip)
                                         },
                                         enabled = !uiState.isTestingPing,
@@ -375,17 +450,12 @@ fun TvRemoteScreen(
                                                 strokeWidth = 2.dp
                                             )
                                         } else {
-                                            Text("⚡ অটো-ডিটেক্ট", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                            Text("🔍 খুঁজুন", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                         }
                                     }
 
                                     Button(
-                                        onClick = {
-                                            val ip = connectedDevice?.ipAddress ?: "192.168.0.100"
-                                            val port = connectedDevice?.port ?: 5555
-                                            viewModel.testPing(ip, port)
-                                        },
-                                        enabled = !uiState.isTestingPing,
+                                        onClick = { viewModel.showSettingsDialog(true) },
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = Color(0xFF00384D),
                                             contentColor = AccentCyan
@@ -394,7 +464,7 @@ fun TvRemoteScreen(
                                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                         modifier = Modifier.height(30.dp)
                                     ) {
-                                        Text("টেস্ট", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Text("IP দিন", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                     }
 
                                     Button(
@@ -415,30 +485,38 @@ fun TvRemoteScreen(
                     }
                 }
 
-                // Ping Test Result Toast / Banner
-                uiState.pingTestResult?.let { result ->
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFF1E283D),
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (result.contains("সফল") || result.contains("Online")) StatusGreen else Color(0xFFFF9100)
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = result,
-                            color = if (result.contains("সফল") || result.contains("Online")) StatusGreen else Color(0xFFFFCC80),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.padding(8.dp)
-                        )
+                // Scrollable Remote Area below the pinned header
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .verticalScroll(scrollState),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Ping Test Result Toast / Banner
+                    uiState.pingTestResult?.let { result ->
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF1E283D),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (result.contains("সফল") || result.contains("Online") || result.contains("পাওয়া গেছে")) StatusGreen else Color(0xFFFF9100)
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = result,
+                                color = if (result.contains("সফল") || result.contains("Online") || result.contains("পাওয়া গেছে")) StatusGreen else Color(0xFFFFCC80),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(8.dp)
+                            )
+                        }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                 // 2. Top 4 Utility Buttons: Menu, Settings, Hold to talk, Type
                 TopUtilityActionsRow(
@@ -511,8 +589,20 @@ fun TvRemoteScreen(
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
+                }
             }
         }
+    }
+
+    // Google TV / Android TV 6-digit Hex PIN Pairing Dialog
+    pairingRequiredIp?.let { targetIp ->
+        GoogleTvPinDialog(
+            ip = targetIp,
+            message = pairingMessage,
+            isLoading = uiState.isTestingPing,
+            onSubmit = { pin -> viewModel.submitGoogleTvPin(targetIp, pin) },
+            onDismiss = { viewModel.cancelGoogleTvPairing() }
+        )
     }
 
     // 8. Typing / Keyboard Dialog (টাইপিং এর ব্যবস্থা)
@@ -566,10 +656,10 @@ fun TvRemoteScreen(
     // Manual TV Settings Dialog
     if (uiState.showSettingsDialog) {
         TvSettingsDialog(
-            initialIp = connectedDevice?.ipAddress ?: viewModel.getSubnetPrefix(),
-            initialPort = connectedDevice?.port ?: 8060,
-            initialName = connectedDevice?.name ?: "Living Room TV",
-            initialProtocol = connectedDevice?.protocol ?: com.example.model.TvProtocol.ROKU_ECP,
+            initialIp = connectedDevice?.ipAddress ?: "192.168.0.106",
+            initialPort = connectedDevice?.port ?: 5555,
+            initialName = connectedDevice?.name ?: "TX500PRO TV Box",
+            initialProtocol = connectedDevice?.protocol ?: com.example.model.TvProtocol.ANDROID_TV_TCP,
             isTestingPing = uiState.isTestingPing,
             pingResult = uiState.pingTestResult,
             onTestPing = { ip, port -> viewModel.testPing(ip, port) },
@@ -579,6 +669,69 @@ fun TvRemoteScreen(
             onDismiss = { viewModel.showSettingsDialog(false) }
         )
     }
+}
+
+@Composable
+private fun GoogleTvPinDialog(
+    ip: String,
+    message: String?,
+    isLoading: Boolean,
+    onSubmit: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var pinInput by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF141C2B),
+        title = {
+            Text(
+                text = "Google / Android TV পেয়ারিং",
+                color = Color.White,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = message ?: "আপনার টিভির পর্দায় ($ip) যে ৬ অক্ষরের কোডটি দেখা যাচ্ছে, সেটি নিচে লিখুন:",
+                    color = TextSecondary,
+                    fontSize = 13.sp
+                )
+                OutlinedTextField(
+                    value = pinInput,
+                    onValueChange = { if (it.length <= 6) pinInput = it.uppercase() },
+                    label = { Text("৬ অক্ষরের কোড (যেমন: A1B2C3)") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = AccentCyan,
+                        unfocusedBorderColor = Color(0xFF334155)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSubmit(pinInput) },
+                enabled = !isLoading && pinInput.trim().length == 6,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = AccentCyan,
+                    contentColor = Color.Black
+                )
+            ) {
+                Text("পেয়ার করুন", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("বাতিল", color = TextSecondary)
+            }
+        }
+    )
 }
 
 /**

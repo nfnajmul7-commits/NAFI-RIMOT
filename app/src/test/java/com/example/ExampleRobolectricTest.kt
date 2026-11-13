@@ -92,5 +92,16 @@ class ExampleRobolectricTest {
         // Switch back to Wi-Fi Mode
         repository.setBluetoothMode(false)
         assertFalse(repository.isBluetoothMode.value)
+
+        // Add Google TV Remote v2 device
+        val googleTv = repository.addManualDevice(
+            name = "TX500PRO Google TV",
+            ip = "192.168.0.106",
+            port = 6466,
+            protocol = TvProtocol.ANDROID_TV_REMOTE_V2
+        )
+        assertEquals(TvProtocol.ANDROID_TV_REMOTE_V2, googleTv.protocol)
+        assertEquals("192.168.0.106", googleTv.ipAddress)
+        assertEquals(6466, googleTv.port)
     }
 }

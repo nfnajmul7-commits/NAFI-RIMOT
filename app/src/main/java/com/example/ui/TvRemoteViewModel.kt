@@ -45,6 +45,8 @@ class TvRemoteViewModel(application: Application) : AndroidViewModel(application
     val isBluetoothMode: StateFlow<Boolean> = repository.isBluetoothMode
     val bluetoothStatus: StateFlow<com.example.bluetooth.BluetoothStatus> = repository.bluetoothManager.status
     val bluetoothDeviceName: StateFlow<String?> = repository.bluetoothManager.connectedDeviceName
+    val pairingRequiredIp: StateFlow<String?> = repository.pairingRequiredIp
+    val pairingMessage: StateFlow<String?> = repository.pairingMessage
     val discoveredDevices: StateFlow<List<TvDevice>> = repository.discoveryManager.discoveredDevices
     val isScanning: StateFlow<Boolean> = repository.discoveryManager.isScanning
     val recentLatency: StateFlow<Long?> = repository.recentLatency
@@ -99,6 +101,37 @@ class TvRemoteViewModel(application: Application) : AndroidViewModel(application
     fun selectDevice(device: TvDevice) {
         repository.connectToDevice(device)
         _uiState.value = _uiState.value.copy(showDiscoverySheet = false)
+        if (device.protocol == TvProtocol.ANDROID_TV_REMOTE_V2 &&
+            !com.example.network.AndroidTvRemoteV2Client.isPaired(device.ipAddress)
+        ) {
+            startGoogleTvPairing(device.ipAddress)
+        }
+    }
+
+    fun startGoogleTvPairing(ip: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isTestingPing = true)
+            val res = repository.startGoogleTvPairing(ip)
+            _uiState.value = _uiState.value.copy(
+                isTestingPing = false,
+                pingTestResult = res.second
+            )
+        }
+    }
+
+    fun submitGoogleTvPin(ip: String, code: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isTestingPing = true)
+            val res = repository.submitGoogleTvPin(ip, code)
+            _uiState.value = _uiState.value.copy(
+                isTestingPing = false,
+                pingTestResult = res.second
+            )
+        }
+    }
+
+    fun cancelGoogleTvPairing() {
+        repository.cancelGoogleTvPairing()
     }
 
     fun disconnect() {
@@ -108,6 +141,11 @@ class TvRemoteViewModel(application: Application) : AndroidViewModel(application
     fun addManualDevice(name: String, ip: String, port: Int, protocol: TvProtocol) {
         val device = repository.addManualDevice(name, ip, port, protocol)
         _uiState.value = _uiState.value.copy(showSettingsDialog = false)
+        if (protocol == TvProtocol.ANDROID_TV_REMOTE_V2 &&
+            !com.example.network.AndroidTvRemoteV2Client.isPaired(ip)
+        ) {
+            startGoogleTvPairing(ip)
+        }
     }
 
     fun testPing(ip: String, port: Int) {

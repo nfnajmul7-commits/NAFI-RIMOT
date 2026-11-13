@@ -57,7 +57,7 @@ import com.example.ui.theme.TextSecondary
 
 @Composable
 fun TvSettingsDialog(
-    initialIp: String = "192.168.0.100",
+    initialIp: String = "192.168.0.106",
     initialPort: Int = 5555,
     initialName: String = "Android TV Box",
     initialProtocol: TvProtocol = TvProtocol.ANDROID_TV_TCP,
@@ -68,7 +68,7 @@ fun TvSettingsDialog(
     onDismiss: () -> Unit
 ) {
     var name by remember { mutableStateOf(initialName.ifBlank { "Android TV Box" }) }
-    var ip by remember { mutableStateOf(initialIp.ifBlank { "192.168.0.100" }) }
+    var ip by remember { mutableStateOf(initialIp.ifBlank { "192.168.0.106" }) }
     var portText by remember { mutableStateOf(initialPort.toString()) }
     var selectedProtocol by remember { mutableStateOf(initialProtocol) }
     var protocolDropdownExpanded by remember { mutableStateOf(false) }
@@ -136,7 +136,7 @@ fun TvSettingsDialog(
                 OutlinedTextField(
                     value = portText,
                     onValueChange = { portText = it },
-                    label = { Text("Port (Roku: 8060, Android: 5555, REST: 8080)") },
+                    label = { Text("Port (Google TV: 6466, ADB: 5555, Roku: 8060)") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     colors = OutlinedTextFieldDefaults.colors(

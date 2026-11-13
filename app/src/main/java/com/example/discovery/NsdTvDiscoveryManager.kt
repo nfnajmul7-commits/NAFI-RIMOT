@@ -10,6 +10,7 @@ import com.example.model.TvProtocol
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -167,6 +168,7 @@ class NsdTvDiscoveryManager(
                     val type = serviceInfo.serviceType ?: ""
 
                     val protocol = when {
+                        type.contains("androidtvremote") || port == 6466 || port == 6467 -> TvProtocol.ANDROID_TV_REMOTE_V2
                         type.contains("roku") || port == 8060 -> TvProtocol.ROKU_ECP
                         type.contains("androidtv") || port == 5555 -> TvProtocol.ANDROID_TV_TCP
                         else -> TvProtocol.UNIVERSAL_REST
@@ -208,77 +210,128 @@ class NsdTvDiscoveryManager(
     }
 
     /**
-     * Probes local network IP addresses for common TV ports (e.g. 8060 for Roku, 5555 for Android TV)
+     * Fast parallel scan of the entire local Wi-Fi subnet (1..254) for any Android TV,
+     * Google TV, China TV Box, Chromecast, or Roku device. Completes in ~2 seconds.
+     */
+    suspend fun scanSubnetNow(): List<TvDevice> = withContext(Dispatchers.IO) {
+        val found = java.util.Collections.synchronizedList(mutableListOf<TvDevice>())
+        val localIp = getLocalWifiIp()
+        val prefix = if (localIp != null && localIp.contains(".")) {
+            localIp.substringBeforeLast(".")
+        } else {
+            "192.168.0"
+        }
+
+        val semaphore = kotlinx.coroutines.sync.Semaphore(48)
+        kotlinx.coroutines.coroutineScope {
+            val jobs = (1..254).map { lastOctet ->
+                val targetIp = "$prefix.$lastOctet"
+                this.async {
+                    if (targetIp == localIp) return@async
+                    semaphore.acquire()
+                    try {
+                        val device = checkCommonTvPorts(targetIp, timeoutMs = 280)
+                        if (device != null) {
+                            found.add(device)
+                            addDiscoveredDevice(device)
+                        }
+                    } finally {
+                        semaphore.release()
+                    }
+                }
+            }
+            jobs.forEach { it.await() }
+        }
+        found.toList()
+    }
+
+    /**
+     * Probes local network IP addresses in parallel for common TV & TV Box ports
      */
     private fun startSubnetScan() {
         subnetScanJob?.cancel()
         subnetScanJob = scope.launch(Dispatchers.IO) {
             try {
-                val localIp = getLocalWifiIp()
-                if (localIp != null && localIp.contains(".")) {
-                    val prefix = localIp.substringBeforeLast(".")
-                    // Probe a sample of likely devices on local subnet
-                    val candidateHosts = (1..254).toList()
-                    candidateHosts.chunked(25).forEach { batch ->
-                        if (!_isScanning.value) return@launch
-                        batch.forEach { lastOctet ->
-                            val targetIp = "$prefix.$lastOctet"
-                            if (targetIp != localIp) {
-                                checkCommonTvPorts(targetIp)
-                            }
-                        }
-                    }
-                }
+                scanSubnetNow()
             } catch (e: Exception) {
                 Log.w(TAG, "Subnet scan error: ${e.message}")
             }
         }
     }
 
-    private fun checkCommonTvPorts(ip: String) {
-        // Quick probe for Roku port 8060
-        if (isPortOpen(ip, 8060, 250)) {
-            addDiscoveredDevice(
-                TvDevice(
-                    id = "$ip:8060",
-                    name = "Roku TV ($ip)",
-                    ipAddress = ip,
-                    port = 8060,
-                    protocol = TvProtocol.ROKU_ECP,
-                    serviceType = "roku:ecp"
-                )
+    private fun checkCommonTvPorts(ip: String, timeoutMs: Int = 280): TvDevice? {
+        // 1. Android TV / China TV Box ADB Port 5555
+        if (isPortOpen(ip, 5555, timeoutMs)) {
+            return TvDevice(
+                id = "$ip:5555",
+                name = "Android / China TV Box ($ip)",
+                ipAddress = ip,
+                port = 5555,
+                protocol = TvProtocol.ANDROID_TV_TCP,
+                serviceType = "android:adb_tcp"
             )
-            return
         }
 
-        // Quick probe for Android TV port 5555
-        if (isPortOpen(ip, 5555, 250)) {
-            addDiscoveredDevice(
-                TvDevice(
-                    id = "$ip:5555",
-                    name = "Android TV ($ip)",
-                    ipAddress = ip,
-                    port = 5555,
-                    protocol = TvProtocol.ANDROID_TV_TCP,
-                    serviceType = "android:adb_tcp"
-                )
+        // 2. Google TV / Android TV Remote v2 Port 6466 or 6467
+        if (isPortOpen(ip, 6466, timeoutMs) || isPortOpen(ip, 6467, timeoutMs)) {
+            return TvDevice(
+                id = "$ip:6466",
+                name = "Google / Android TV ($ip)",
+                ipAddress = ip,
+                port = 6466,
+                protocol = TvProtocol.ANDROID_TV_REMOTE_V2,
+                serviceType = "_androidtvremote2._tcp."
             )
-            return
         }
 
-        // Quick probe for Universal REST port 8080
-        if (isPortOpen(ip, 8080, 250)) {
-            addDiscoveredDevice(
-                TvDevice(
-                    id = "$ip:8080",
-                    name = "Smart TV Bridge ($ip)",
-                    ipAddress = ip,
-                    port = 8080,
-                    protocol = TvProtocol.UNIVERSAL_REST,
-                    serviceType = "smarttv:rest"
-                )
+        // 3. Roku TV Port 8060
+        if (isPortOpen(ip, 8060, timeoutMs)) {
+            return TvDevice(
+                id = "$ip:8060",
+                name = "Roku TV ($ip)",
+                ipAddress = ip,
+                port = 8060,
+                protocol = TvProtocol.ROKU_ECP,
+                serviceType = "roku:ecp"
             )
         }
+
+        // 4. China TV Box Custom Socket Port 55555
+        if (isPortOpen(ip, 55555, timeoutMs)) {
+            return TvDevice(
+                id = "$ip:55555",
+                name = "China TV Box ($ip)",
+                ipAddress = ip,
+                port = 55555,
+                protocol = TvProtocol.ANDROID_TV_TCP,
+                serviceType = "chinatv:socket"
+            )
+        }
+
+        // 5. Chromecast / Universal REST Port 8008 or 8080
+        if (isPortOpen(ip, 8008, timeoutMs)) {
+            return TvDevice(
+                id = "$ip:8008",
+                name = "Chromecast / Android Box ($ip)",
+                ipAddress = ip,
+                port = 8008,
+                protocol = TvProtocol.UNIVERSAL_REST,
+                serviceType = "googlecast:dial"
+            )
+        }
+
+        if (isPortOpen(ip, 8080, timeoutMs)) {
+            return TvDevice(
+                id = "$ip:8080",
+                name = "Smart TV Bridge ($ip)",
+                ipAddress = ip,
+                port = 8080,
+                protocol = TvProtocol.UNIVERSAL_REST,
+                serviceType = "smarttv:rest"
+            )
+        }
+
+        return null
     }
 
     private fun isPortOpen(ip: String, port: Int, timeoutMs: Int): Boolean {

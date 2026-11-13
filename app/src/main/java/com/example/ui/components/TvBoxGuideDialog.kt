@@ -71,7 +71,7 @@ fun TvBoxGuideDialog(
     onConnect: (name: String, ip: String, port: Int, protocol: TvProtocol) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var ipInput by remember { mutableStateOf("192.168.0.100") }
+    var ipInput by remember { mutableStateOf("192.168.0.106") }
     var selectedBoxType by remember { mutableStateOf("Android TV Box") }
     var port by remember { mutableStateOf(5555) }
     var protocol by remember { mutableStateOf(TvProtocol.ANDROID_TV_TCP) }
@@ -108,7 +108,7 @@ fun TvBoxGuideDialog(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Easy TV Box Setup Guide (IP: 192.168.0.100)",
+                        text = "Easy TV Box Setup Guide (TX500PRO / Android / Google TV)",
                         color = TextMuted,
                         fontSize = 11.sp
                     )
@@ -125,8 +125,8 @@ fun TvBoxGuideDialog(
                 // Step 1: Same Wi-Fi
                 GuideStepCard(
                     stepNumber = "১",
-                    title = "একই Wi-Fi তে কানেক্ট রাখুন",
-                    description = "আপনার মোবাইল এবং টিভি বক্স (TX3, Tanix, X96, Walton, Mi Box ইত্যাদি) একই Wi-Fi নেটওয়ার্কে রাখুন।\nআপনার টিভির IP: 192.168.0.100",
+                    title = "একই Wi-Fi ও সঠিক IP রাখুন",
+                    description = "মোবাইল এবং টিভি বক্স (TX500PRO, TX3, Tanix, X96, Mi Box, Google TV) একই Wi-Fi নেটওয়ার্কে রাখুন।\nদ্রষ্টব্য: আপনার বক্সের IP পরিবর্তন হয়ে থাকলে (যেমন 192.168.0.106) 'অটো-ডিটেক্ট' চাপুন।",
                     icon = AppIcons.Wifi,
                     badge = if (userWifiIp != null) "ফোন: $userWifiIp" else null
                 )
@@ -134,8 +134,8 @@ fun TvBoxGuideDialog(
                 // Step 2: Enable Network Debugging
                 GuideStepCard(
                     stepNumber = "২",
-                    title = "টিভি বক্সে Network Debugging চালু করুন",
-                    description = "Wi-Fi রিমোট কাজ করতে টিভিতে ADB চালু থাকতে হবে:\n১. টিভির আসল রিমোট দিয়ে যান: Settings ➔ About (ডিভাইস তথ্য)।\n২. নিচে গিয়ে Build (বিল্ড নম্বর) এ ৭ বার OK চাপুন (ডেভেলপার মোড চালু হবে)।\n৩. Developer Options এ গিয়ে Network Debugging / USB Debugging অন করুন।",
+                    title = "টিভি বক্সে USB/Network Debugging বা Bluetooth চালু করুন",
+                    description = "ক) Bluetooth (সবচেয়ে সহজ): টিভির Remotes & Accessories এ গিয়ে Add accessory চালু করুন এবং অ্যাপের 'ব্লুটুথ রিমোট' ট্যাব থেকে পেয়ার করুন।\nখ) Wi-Fi ADB (TX500PRO): টিভির About ➔ Build (TX500PRO-...) এ ৭ বার OK চাপুন ➔ Developer Options ➔ USB/Network Debugging অন করে বক্স রিস্টার্ট দিন।",
                     icon = Icons.Default.Settings
                 )
 
@@ -175,16 +175,7 @@ fun TvBoxGuideDialog(
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             BoxTypeChip(
-                                label = "চায়না টিভি বক্স",
-                                isSelected = selectedBoxType == "China TV Box",
-                                onClick = {
-                                    selectedBoxType = "China TV Box"
-                                    port = 5555
-                                    protocol = TvProtocol.ANDROID_TV_TCP
-                                }
-                            )
-                            BoxTypeChip(
-                                label = "Android TV",
+                                label = "টিভি বক্স (5555)",
                                 isSelected = selectedBoxType == "Android TV Box",
                                 onClick = {
                                     selectedBoxType = "Android TV Box"
@@ -193,7 +184,16 @@ fun TvBoxGuideDialog(
                                 }
                             )
                             BoxTypeChip(
-                                label = "Chromecast/DIAL",
+                                label = "Google TV (6466)",
+                                isSelected = selectedBoxType == "Google TV",
+                                onClick = {
+                                    selectedBoxType = "Google TV"
+                                    port = 6466
+                                    protocol = TvProtocol.ANDROID_TV_REMOTE_V2
+                                }
+                            )
+                            BoxTypeChip(
+                                label = "Cast (8008)",
                                 isSelected = selectedBoxType == "Chromecast",
                                 onClick = {
                                     selectedBoxType = "Chromecast"
